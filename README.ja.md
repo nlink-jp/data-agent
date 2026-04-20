@@ -39,7 +39,7 @@ model = "gemini-2.5-flash"
 
 [local_llm]
 endpoint = "http://localhost:1234/v1"
-model = "gemma-4-12b"
+model = "google/gemma-4-26b-a4b"
 api_key = ""
 
 [container]

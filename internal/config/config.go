@@ -80,7 +80,7 @@ func DefaultConfig() *Config {
 		},
 		LocalLLM: LocalLLMConfig{
 			Endpoint: "http://localhost:1234/v1",
-			Model:    "gemma-4-12b",
+			Model:    "google/gemma-4-26b-a4b",
 		},
 		Analysis: AnalysisConfig{
 			ContextLimit:        131072,
