@@ -385,7 +385,7 @@ func (a *App) runExecution(caseID, sessionID string) {
 	a.log.Info("execution complete, generating report", logger.F("session", sessionID))
 
 	saveReport := func(reviewContent string) (string, string, error) {
-		r, err := report.GenerateFromSession(sess)
+		r, err := report.GenerateFromSession(sess, reviewContent)
 		if err != nil {
 			return "", "", err
 		}

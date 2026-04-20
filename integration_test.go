@@ -264,7 +264,7 @@ func TestIntegration_SessionWorkflow(t *testing.T) {
 	t.Logf("Phase: %s", sess.Phase)
 
 	// Generate report
-	rpt, err := report.GenerateFromSession(sess)
+	rpt, err := report.GenerateFromSession(sess, "Integration test: analysis shows patterns.")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,9 +278,9 @@ func TestIntegration_SessionWorkflow(t *testing.T) {
 	}{
 		{"header", "# Analysis Report:"},
 		{"objective", "Analyze incident patterns"},
-		{"plan section", "## 1. Investigation Plan"},
-		{"exec section", "## 2. Execution Record"},
-		{"findings section", "## 3. Findings"},
+		{"executive summary", "## 1. Executive Summary"},
+		{"plan section", "## 2. Investigation Plan"},
+		{"exec section", "## 4. Execution Details"},
 		{"finding F1", "Malware is the dominant threat"},
 		{"finding F2", "Severity trend is escalating"},
 		{"SQL in report", "SELECT category"},

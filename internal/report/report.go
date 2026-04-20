@@ -24,7 +24,8 @@ type Report struct {
 }
 
 // GenerateFromSession creates a Markdown report from a completed session.
-func GenerateFromSession(sess *session.Session) (*Report, error) {
+// reviewContent is the LLM-generated comprehensive evaluation (may be empty).
+func GenerateFromSession(sess *session.Session, reviewContent string) (*Report, error) {
 	if sess.Plan == nil {
 		return nil, fmt.Errorf("session has no plan")
 	}
@@ -36,13 +37,21 @@ func GenerateFromSession(sess *session.Session) (*Report, error) {
 	fmt.Fprintf(&sb, "> Session: %s\n", sess.ID)
 	fmt.Fprintf(&sb, "> Generated: %s\n\n", time.Now().Format("2006-01-02 15:04:05"))
 
-	// 1. Investigation Plan
-	sb.WriteString("## 1. Investigation Plan\n\n")
+	// 1. Executive Summary (LLM comprehensive evaluation)
+	sb.WriteString("## 1. Executive Summary\n\n")
+	if reviewContent != "" {
+		sb.WriteString(reviewContent)
+		sb.WriteString("\n\n")
+	} else {
+		sb.WriteString("*No comprehensive evaluation generated.*\n\n")
+	}
+
+	// 2. Investigation Plan
+	sb.WriteString("## 2. Investigation Plan\n\n")
 	fmt.Fprintf(&sb, "**Objective:** %s\n\n", sess.Plan.Objective)
 
 	for _, p := range sess.Plan.Perspectives {
 		fmt.Fprintf(&sb, "### %s: %s\n\n", p.ID, p.Description)
-		fmt.Fprintf(&sb, "Status: %s\n\n", p.Status)
 		sb.WriteString("| Step | Type | Description | Status |\n")
 		sb.WriteString("|------|------|-------------|--------|\n")
 		for _, s := range p.Steps {
@@ -55,7 +64,6 @@ func GenerateFromSession(sess *session.Session) (*Report, error) {
 		sb.WriteString("\n")
 	}
 
-	// Plan revision history
 	if len(sess.Plan.History) > 0 {
 		sb.WriteString("### Plan Revision History\n\n")
 		for _, rev := range sess.Plan.History {
@@ -64,8 +72,19 @@ func GenerateFromSession(sess *session.Session) (*Report, error) {
 		sb.WriteString("\n")
 	}
 
-	// 2. Execution Record
-	sb.WriteString("## 2. Execution Record\n\n")
+	// 3. Findings
+	if len(sess.Findings) > 0 {
+		sb.WriteString("## 3. Findings\n\n")
+		sb.WriteString("| ID | Severity | Description | Step |\n")
+		sb.WriteString("|----|----------|-------------|------|\n")
+		for _, f := range sess.Findings {
+			fmt.Fprintf(&sb, "| %s | %s | %s | %s |\n", f.ID, f.Severity, f.Description, f.StepID)
+		}
+		sb.WriteString("\n")
+	}
+
+	// 4. Detailed Execution Record
+	sb.WriteString("## 4. Execution Details\n\n")
 	if len(sess.ExecLog) == 0 {
 		sb.WriteString("No executions recorded.\n\n")
 	} else {
@@ -87,21 +106,8 @@ func GenerateFromSession(sess *session.Session) (*Report, error) {
 		}
 	}
 
-	// 3. Findings
-	sb.WriteString("## 3. Findings\n\n")
-	if len(sess.Findings) == 0 {
-		sb.WriteString("No findings recorded.\n\n")
-	} else {
-		sb.WriteString("| ID | Severity | Description | Step |\n")
-		sb.WriteString("|----|----------|-------------|------|\n")
-		for _, f := range sess.Findings {
-			fmt.Fprintf(&sb, "| %s | %s | %s | %s |\n", f.ID, f.Severity, f.Description, f.StepID)
-		}
-		sb.WriteString("\n")
-	}
-
-	// 4. Metadata
-	sb.WriteString("## 4. Metadata\n\n")
+	// 5. Metadata
+	sb.WriteString("## 5. Metadata\n\n")
 	fmt.Fprintf(&sb, "- Session ID: %s\n", sess.ID)
 	fmt.Fprintf(&sb, "- Case ID: %s\n", sess.CaseID)
 	fmt.Fprintf(&sb, "- Created: %s\n", sess.CreatedAt.Format("2006-01-02 15:04:05"))

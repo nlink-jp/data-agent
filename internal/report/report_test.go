@@ -41,7 +41,7 @@ func testSession() *session.Session {
 func TestGenerateFromSession(t *testing.T) {
 	s := testSession()
 
-	r, err := GenerateFromSession(s)
+	r, err := GenerateFromSession(s, "Test review: incidents show increasing trend.")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,14 +58,17 @@ func TestGenerateFromSession(t *testing.T) {
 	if !strings.Contains(content, "# Analysis Report:") {
 		t.Error("report should contain header")
 	}
-	if !strings.Contains(content, "## 1. Investigation Plan") {
+	if !strings.Contains(content, "## 1. Executive Summary") {
+		t.Error("report should contain executive summary")
+	}
+	if !strings.Contains(content, "increasing trend") {
+		t.Error("report should contain review content in executive summary")
+	}
+	if !strings.Contains(content, "## 2. Investigation Plan") {
 		t.Error("report should contain investigation plan")
 	}
-	if !strings.Contains(content, "## 2. Execution Record") {
-		t.Error("report should contain execution record")
-	}
-	if !strings.Contains(content, "## 3. Findings") {
-		t.Error("report should contain findings")
+	if !strings.Contains(content, "## 4. Execution Details") {
+		t.Error("report should contain execution details")
 	}
 	if !strings.Contains(content, "Incidents increased 40%") {
 		t.Error("report should contain finding description")
@@ -77,7 +80,7 @@ func TestGenerateFromSession(t *testing.T) {
 
 func TestGenerateFromSessionNoPlan(t *testing.T) {
 	s := session.New("case-1")
-	_, err := GenerateFromSession(s)
+	_, err := GenerateFromSession(s, "Test review: incidents show increasing trend.")
 	if err == nil {
 		t.Error("expected error for session without plan")
 	}
@@ -87,7 +90,7 @@ func TestSaveAndList(t *testing.T) {
 	dir := t.TempDir()
 	s := testSession()
 
-	r, _ := GenerateFromSession(s)
+	r, _ := GenerateFromSession(s, "Test review: incidents show increasing trend.")
 
 	if err := r.SaveToCase(dir); err != nil {
 		t.Fatal(err)
@@ -108,7 +111,7 @@ func TestSaveAndList(t *testing.T) {
 func TestExportFile(t *testing.T) {
 	dir := t.TempDir()
 	s := testSession()
-	r, _ := GenerateFromSession(s)
+	r, _ := GenerateFromSession(s, "Test review: incidents show increasing trend.")
 
 	path := filepath.Join(dir, "sub", "report.md")
 	if err := r.ExportFile(path); err != nil {
@@ -131,7 +134,7 @@ func TestPlanRevisionHistory(t *testing.T) {
 	}}
 	s.Plan.Version = 2
 
-	r, err := GenerateFromSession(s)
+	r, err := GenerateFromSession(s, "Test review: incidents show increasing trend.")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,14 +150,14 @@ func TestEmptyExecLogAndFindings(t *testing.T) {
 	s := session.New("case-1")
 	s.SetPlan(&session.Plan{Objective: "Empty test"})
 
-	r, err := GenerateFromSession(s)
+	r, err := GenerateFromSession(s, "Test review: incidents show increasing trend.")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(r.Content, "No executions recorded") {
 		t.Error("report should indicate no executions")
 	}
-	if !strings.Contains(r.Content, "No findings recorded") {
-		t.Error("report should indicate no findings")
+	if !strings.Contains(r.Content, "No executions recorded") {
+		t.Error("report should indicate no executions")
 	}
 }
