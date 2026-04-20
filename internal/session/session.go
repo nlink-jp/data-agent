@@ -81,9 +81,9 @@ func (s *Session) RequestAdditionalAnalysis() error {
 	return nil
 }
 
-// Finalize marks the session as done.
+// Finalize marks the session as done. Can be called from Execution or Review phase.
 func (s *Session) Finalize() error {
-	if s.Phase != PhaseReview {
+	if s.Phase != PhaseExecution && s.Phase != PhaseReview {
 		return fmt.Errorf("cannot finalize from %s phase", s.Phase)
 	}
 	s.Phase = PhaseDone

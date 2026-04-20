@@ -113,6 +113,7 @@ func (e *Executor) RunPlan(ctx context.Context, sess *Session, saveFunc func() e
 					e.Events.OnLog("info", "retrying SQL step", map[string]string{"step": step.ID, "retry": fmt.Sprintf("%d", step.RetryCount)})
 					if retryErr := e.retrySQLWithFeedback(ctx, sess, step); retryErr == nil {
 						stepErr = nil
+						step.Status = StepRunning // reset so it gets marked Done below
 					}
 				}
 			}
