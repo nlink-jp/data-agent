@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/nlink-jp/data-agent/internal/analysis"
 	"github.com/nlink-jp/data-agent/internal/casemgr"
@@ -21,12 +24,13 @@ import (
 // Business logic lives in internal/ packages; this layer only bridges
 // the frontend (React) and backend (Go) via Wails bindings and events.
 type App struct {
-	ctx     context.Context
-	cfg     *config.Config
-	cases   *casemgr.Manager
-	jobs    *job.Manager
-	log     *logger.Logger
-	backend llm.Backend
+	ctx      context.Context
+	cfg      *config.Config
+	cases    *casemgr.Manager
+	jobs     *job.Manager
+	log      *logger.Logger
+	diag     *os.File // diagnostic log (detailed state dumps)
+	backend  llm.Backend
 }
 
 func NewApp() *App { return &App{} }
@@ -83,10 +87,20 @@ func (a *App) startup(ctx context.Context) {
 		a.log.Info("LLM backend initialized", logger.F("backend", a.backend.Name()))
 	}
 
+	// Open diagnostic log (detailed state dumps, separate from UI log)
+	diagPath := filepath.Join(dataDir, "logs", "diagnostic.log")
+	a.diag, err = os.OpenFile(diagPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		a.log.Warn("diagnostic log open failed", logger.F("error", err.Error()))
+	}
+
 	a.log.Info("data-agent started", logger.F("data_dir", dataDir))
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	if a.diag != nil {
+		a.diag.Close()
+	}
 	if a.log != nil {
 		a.log.Info("data-agent shutting down")
 		a.log.Close()
@@ -184,6 +198,7 @@ func (a *App) ReopenSession(caseID, sessionID string) error {
 		return err
 	}
 	sess.AddMessage("system", "Session reopened for additional analysis.")
+	a.diagSession("ReopenSession", sess)
 	if err := sess.Save(a.sessionsDir(caseID)); err != nil {
 		return err
 	}
@@ -239,6 +254,7 @@ func (a *App) SendMessage(caseID, sessionID, content string) error {
 		return err
 	}
 	sess.AddMessage("user", content)
+	a.diagSession("SendMessage:before_llm", sess)
 
 	if a.backend == nil {
 		return fmt.Errorf("LLM backend not initialized")
@@ -290,6 +306,8 @@ func (a *App) SendMessage(caseID, sessionID, content string) error {
 		}
 	}
 
+	a.diagSession("SendMessage:after_llm", sess)
+
 	// Save then emit events
 	if err := sess.Save(a.sessionsDir(caseID)); err != nil {
 		return fmt.Errorf("save session: %w", err)
@@ -314,6 +332,7 @@ func (a *App) ApprovePlan(caseID, sessionID string) error {
 	if err := sess.Save(a.sessionsDir(caseID)); err != nil {
 		return err
 	}
+	a.diagSession("ApprovePlan", sess)
 	a.log.Info("plan approved, starting execution", logger.F("session", sessionID))
 	wailsRuntime.EventsEmit(a.ctx, "session:phase", map[string]any{"session": sessionID, "phase": "execution"})
 
@@ -361,6 +380,8 @@ func (a *App) runExecution(caseID, sessionID string) {
 		a.log.Error("engine unavailable for execution", logger.F("error", err.Error()))
 		return
 	}
+
+	a.diagSession("runExecution:start", sess)
 
 	executor := &session.Executor{
 		Engine:  engine,
@@ -463,6 +484,46 @@ func (a *App) sessionsDir(caseID string) string {
 
 func (a *App) reportsDir(caseID string) string {
 	return filepath.Join(a.cases.CaseDir(caseID), "reports")
+}
+
+// diagLog writes a detailed diagnostic entry to the diagnostic log file.
+func (a *App) diagLog(event string, data any) {
+	if a.diag == nil {
+		return
+	}
+	entry := map[string]any{
+		"time":  fmt.Sprintf("%s", time.Now().Format("2006-01-02T15:04:05.000")),
+		"event": event,
+		"data":  data,
+	}
+	b, _ := json.MarshalIndent(entry, "", "  ")
+	a.diag.Write(append(b, '\n'))
+}
+
+// diagSession dumps full session state for diagnostics.
+func (a *App) diagSession(event string, sess *session.Session) {
+	if a.diag == nil || sess == nil {
+		return
+	}
+	planSummary := "nil"
+	if sess.Plan != nil {
+		var steps []string
+		for _, p := range sess.Plan.Perspectives {
+			for _, s := range p.Steps {
+				steps = append(steps, fmt.Sprintf("%s[%s]:%s", s.ID, s.Type, s.Status))
+			}
+		}
+		planSummary = fmt.Sprintf("v%d obj=%q perspectives=%d steps=%v",
+			sess.Plan.Version, truncateRunes(sess.Plan.Objective, 40), len(sess.Plan.Perspectives), steps)
+	}
+	a.diagLog(event, map[string]any{
+		"session_id":  sess.ID,
+		"phase":       sess.Phase,
+		"plan":        planSummary,
+		"chat_count":  len(sess.Chat),
+		"exec_count":  len(sess.ExecLog),
+		"finding_count": len(sess.Findings),
+	})
 }
 
 func truncateRunes(s string, max int) string {
