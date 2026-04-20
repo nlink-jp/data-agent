@@ -58,7 +58,9 @@ func (a *App) startup(ctx context.Context) {
 	if err != nil {
 		a.log.Error("case manager init failed", logger.F("error", err.Error()))
 	} else {
-		a.cases.ResetGhostStatus()
+		if count := a.cases.ResetGhostStatus(); count > 0 {
+			a.log.Info("reset ghost status", logger.F("count", fmt.Sprintf("%d", count)))
+		}
 	}
 
 	a.jobs = job.NewManager(
@@ -258,13 +260,17 @@ func (a *App) SendMessage(caseID, sessionID, content string) error {
 		}
 	}
 
-	// Stream response
+	// Stream response (with size limit to prevent memory exhaustion)
+	const maxResponseBytes = 10 * 1024 * 1024 // 10MB
 	var fullResponse string
 	err = a.backend.ChatStream(a.ctx, &llm.ChatRequest{
 		SystemPrompt: systemPrompt,
 		Messages:     messages,
 	}, func(token string, done bool) {
 		if !done {
+			if len(fullResponse)+len(token) > maxResponseBytes {
+				return // silently stop accumulating if response is too large
+			}
 			fullResponse += token
 			wailsRuntime.EventsEmit(a.ctx, "chat:stream", map[string]any{"session": sessionID, "token": token})
 		}

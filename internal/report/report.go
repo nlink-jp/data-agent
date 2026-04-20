@@ -153,8 +153,17 @@ func (r *Report) ExportFile(path string) error {
 func DeleteReport(reportsDir, reportID string) error {
 	jsonPath := filepath.Join(reportsDir, reportID+".json")
 	mdPath := filepath.Join(reportsDir, reportID+".md")
-	os.Remove(mdPath)
-	return os.Remove(jsonPath)
+	var errs []error
+	if err := os.Remove(mdPath); err != nil && !os.IsNotExist(err) {
+		errs = append(errs, err)
+	}
+	if err := os.Remove(jsonPath); err != nil && !os.IsNotExist(err) {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("delete report files: %v", errs)
+	}
+	return nil
 }
 
 // RenameReport updates the title of a report.

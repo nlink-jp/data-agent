@@ -103,6 +103,11 @@ func (s *Session) Reopen() error {
 
 // ForceReplan transitions back to Planning due to critical error.
 func (s *Session) ForceReplan(reason string) {
+	if s.Plan == nil {
+		s.Phase = PhasePlanning
+		s.UpdatedAt = time.Now()
+		return
+	}
 	if s.Plan != nil {
 		s.Plan.History = append(s.Plan.History, PlanRevision{
 			Version:   s.Plan.Version,
@@ -150,6 +155,9 @@ func (s *Session) FindStep(stepID string) (*Step, *Perspective) {
 
 // FindDependentSteps returns all steps that depend on the given step ID.
 func (s *Session) FindDependentSteps(failedID string, perspective *Perspective) []*Step {
+	if perspective == nil {
+		return nil
+	}
 	affected := map[string]bool{failedID: true}
 	var result []*Step
 

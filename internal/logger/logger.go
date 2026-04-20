@@ -113,8 +113,9 @@ func (l *Logger) log(level Level, msg string, fields []Field) {
 	if l.file != nil {
 		data, err := json.Marshal(entry)
 		if err == nil {
-			l.file.Write(data)
-			l.file.Write([]byte("\n"))
+			if _, werr := l.file.Write(append(data, '\n')); werr != nil {
+				fmt.Fprintf(os.Stderr, "log write error: %v\n", werr)
+			}
 		}
 	}
 
