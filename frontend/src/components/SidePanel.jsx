@@ -1,16 +1,33 @@
-import { GetTables, ListSessions, CreateSession, ImportData } from "../../wailsjs/go/main/App";
+import { GetTables, ListSessions, CreateSession, ImportData, GetSession } from "../../wailsjs/go/main/App";
 import { useState, useEffect } from "react";
+import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { ImportDialog } from "./Dialog";
+import PlanView from "./PlanView";
 
 export default function SidePanel({ caseId, activeSessionId, onSelectSession, onRefreshTables }) {
     const [tables, setTables] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [showImport, setShowImport] = useState(false);
+    const [plan, setPlan] = useState(null);
 
     useEffect(() => {
         if (!caseId) return;
         loadData();
     }, [caseId]);
+
+    useEffect(() => {
+        if (!activeSessionId || !caseId) { setPlan(null); return; }
+        loadPlan();
+        const unsub = EventsOn("session:plan_detected", () => loadPlan());
+        return () => unsub();
+    }, [activeSessionId, caseId]);
+
+    const loadPlan = async () => {
+        try {
+            const sess = await GetSession(caseId, activeSessionId);
+            setPlan(sess.plan || null);
+        } catch { setPlan(null); }
+    };
 
     const loadData = async () => {
         try {
@@ -61,6 +78,8 @@ export default function SidePanel({ caseId, activeSessionId, onSelectSession, on
                     ))
                 )}
             </div>
+
+            {plan && <PlanView plan={plan} />}
 
             <div className="side-section">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
