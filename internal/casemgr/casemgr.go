@@ -13,8 +13,9 @@ import (
 	"github.com/nlink-jp/data-agent/internal/dbengine"
 )
 
-// Case represents a data analysis case.
-type Case struct {
+// CaseInfo represents a data analysis case.
+// Named CaseInfo (not Case) to avoid JavaScript reserved word conflict in Wails bindings.
+type CaseInfo struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
@@ -32,7 +33,7 @@ const (
 
 // openCase tracks a currently open case with its DB engine.
 type openCase struct {
-	meta   Case
+	meta   CaseInfo
 	engine *dbengine.Engine
 	refCnt int32 // atomic: background job reference count
 }
@@ -57,8 +58,8 @@ func NewManager(baseDir string) (*Manager, error) {
 }
 
 // Create creates a new case with the given name.
-func (m *Manager) Create(name string) (*Case, error) {
-	c := &Case{
+func (m *Manager) Create(name string) (*CaseInfo, error) {
+	c := &CaseInfo{
 		ID:        uuid.New().String(),
 		Name:      name,
 		CreatedAt: time.Now(),
@@ -80,7 +81,7 @@ func (m *Manager) Create(name string) (*Case, error) {
 }
 
 // List returns all cases (open and closed).
-func (m *Manager) List() ([]Case, error) {
+func (m *Manager) List() ([]CaseInfo, error) {
 	casesDir := filepath.Join(m.baseDir, "cases")
 	entries, err := os.ReadDir(casesDir)
 	if err != nil {
@@ -90,7 +91,7 @@ func (m *Manager) List() ([]Case, error) {
 		return nil, err
 	}
 
-	var cases []Case
+	var cases []CaseInfo
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -213,7 +214,7 @@ func (m *Manager) ReleaseRef(id string) {
 }
 
 // GetMeta returns the metadata for a case.
-func (m *Manager) GetMeta(id string) (*Case, error) {
+func (m *Manager) GetMeta(id string) (*CaseInfo, error) {
 	m.mu.RLock()
 	if oc, exists := m.open[id]; exists {
 		m.mu.RUnlock()
@@ -233,7 +234,7 @@ func (m *Manager) caseDir(id string) string {
 	return filepath.Join(m.baseDir, "cases", id)
 }
 
-func (m *Manager) saveMeta(c *Case) error {
+func (m *Manager) saveMeta(c *CaseInfo) error {
 	path := filepath.Join(m.caseDir(c.ID), "meta.json")
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
@@ -242,13 +243,13 @@ func (m *Manager) saveMeta(c *Case) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-func (m *Manager) loadMeta(id string) (*Case, error) {
+func (m *Manager) loadMeta(id string) (*CaseInfo, error) {
 	path := filepath.Join(m.caseDir(id), "meta.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var c Case
+	var c CaseInfo
 	if err := json.Unmarshal(data, &c); err != nil {
 		return nil, fmt.Errorf("parse case meta: %w", err)
 	}

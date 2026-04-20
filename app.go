@@ -95,7 +95,7 @@ func (a *App) shutdown(ctx context.Context) {
 
 // --- Case Management ---
 
-func (a *App) CreateCase(name string) (*casemgr.Case, error) {
+func (a *App) CreateCase(name string) (*casemgr.CaseInfo, error) {
 	c, err := a.cases.Create(name)
 	if err != nil {
 		return nil, err
@@ -104,7 +104,7 @@ func (a *App) CreateCase(name string) (*casemgr.Case, error) {
 	return c, nil
 }
 
-func (a *App) ListCases() ([]casemgr.Case, error) {
+func (a *App) ListCases() ([]casemgr.CaseInfo, error) {
 	return a.cases.List()
 }
 
