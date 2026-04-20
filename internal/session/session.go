@@ -92,33 +92,14 @@ func (s *Session) Finalize() error {
 }
 
 // Reopen transitions a Done session back to Planning for additional analysis.
-// Resets all step statuses to planned so the plan can be re-executed or replaced.
+// Clears the plan so a new one must be proposed by the LLM.
 func (s *Session) Reopen() error {
 	if s.Phase != PhaseDone {
 		return fmt.Errorf("cannot reopen from %s phase", s.Phase)
 	}
 	s.Phase = PhasePlanning
+	s.Plan = nil // Clear plan — LLM must propose a new one
 	s.UpdatedAt = time.Now()
-
-	// Reset step statuses so ExecuteAll will re-run them
-	if s.Plan != nil {
-		for i := range s.Plan.Perspectives {
-			s.Plan.Perspectives[i].Status = PerspectiveActive
-			for j := range s.Plan.Perspectives[i].Steps {
-				s.Plan.Perspectives[i].Steps[j].Status = StepPlanned
-				s.Plan.Perspectives[i].Steps[j].Result = nil
-				s.Plan.Perspectives[i].Steps[j].Error = nil
-				s.Plan.Perspectives[i].Steps[j].RetryCount = 0
-			}
-		}
-		s.Plan.Version++
-		s.Plan.History = append(s.Plan.History, PlanRevision{
-			Version:   s.Plan.Version,
-			Reason:    "Session reopened",
-			Changes:   "All step statuses reset to planned",
-			Timestamp: time.Now(),
-		})
-	}
 	return nil
 }
 

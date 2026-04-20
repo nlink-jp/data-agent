@@ -465,15 +465,24 @@ func TestSessionPhaseTransitions_FullLifecycle(t *testing.T) {
 		t.Error("should error: already done")
 	}
 
-	// Reopen → Planning
+	// Reopen → Planning (plan cleared)
 	if err := sess.Reopen(); err != nil {
 		t.Fatal(err)
 	}
 	if sess.Phase != PhasePlanning {
 		t.Errorf("phase = %q, want planning", sess.Phase)
 	}
+	if sess.Plan != nil {
+		t.Error("plan should be nil after reopen")
+	}
 
-	// Can approve existing plan
+	// Must set new plan before approve
+	sess.SetPlan(&Plan{
+		Objective: "New analysis after reopen",
+		Perspectives: []Perspective{{
+			ID: "P2", Steps: []Step{{ID: "S3", Type: StepTypeSQL}},
+		}},
+	})
 	if err := sess.ApprovePlan(); err != nil {
 		t.Fatal(err)
 	}
