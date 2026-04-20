@@ -12,7 +12,7 @@ const typeBg = {
     container: "#8b949e33",
 };
 
-export default function InlinePlan({ plan, onApprove }) {
+export default function InlinePlan({ plan }) {
     if (!plan) return null;
 
     return (
@@ -63,15 +63,8 @@ export default function InlinePlan({ plan, onApprove }) {
                 </div>
             ))}
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-                <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                    {plan.perspectives?.length || 0} perspectives, {plan.perspectives?.reduce((n, p) => n + (p.steps?.length || 0), 0) || 0} steps
-                </span>
-                {onApprove && (
-                    <button className="primary" onClick={onApprove} style={{ fontSize: 12 }}>
-                        Approve Plan
-                    </button>
-                )}
+            <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 10 }}>
+                {plan.perspectives?.length || 0} perspectives, {plan.perspectives?.reduce((n, p) => n + (p.steps?.length || 0), 0) || 0} steps
             </div>
         </div>
     );
