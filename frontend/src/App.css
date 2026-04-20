@@ -75,6 +75,19 @@
 }
 .side-item:hover { background: var(--bg-tertiary); }
 .side-item .col-type { color: var(--text-secondary); font-size: 11px; margin-left: 4px; }
+.side-item-managed .item-actions { opacity: 0; transition: opacity 0.1s; display: flex; gap: 2px; }
+.side-item-managed:hover .item-actions { opacity: 1; }
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 3px;
+}
+.icon-btn:hover { color: var(--text-primary); background: var(--border); }
 
 /* Chat Panel */
 .chat-panel {

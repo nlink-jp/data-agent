@@ -189,6 +189,69 @@ func (a *App) GetSession(caseID, sessionID string) (*session.Session, error) {
 	return session.Load(sessionsDir, sessionID)
 }
 
+func (a *App) ReopenSession(caseID, sessionID string) error {
+	sess, err := a.GetSession(caseID, sessionID)
+	if err != nil {
+		return err
+	}
+	if err := sess.Reopen(); err != nil {
+		return err
+	}
+	sessionsDir := filepath.Join(a.cases.CaseDir(caseID), "sessions")
+	if err := sess.Save(sessionsDir); err != nil {
+		return err
+	}
+	a.log.Info("session reopened", logger.F("session", sessionID))
+	wailsRuntime.EventsEmit(a.ctx, "session:phase", map[string]any{"session": sessionID, "phase": "planning"})
+	return nil
+}
+
+func (a *App) DeleteSession(caseID, sessionID string) error {
+	// Delete associated reports first
+	reportsDir := filepath.Join(a.cases.CaseDir(caseID), "reports")
+	reports, _ := report.ListReports(reportsDir)
+	for _, r := range reports {
+		if r.SessionID == sessionID {
+			report.DeleteReport(reportsDir, r.ID)
+			a.log.Info("cascade deleted report", logger.F("report", r.ID), logger.F("session", sessionID))
+		}
+	}
+
+	sessionsDir := filepath.Join(a.cases.CaseDir(caseID), "sessions")
+	if err := session.DeleteSession(sessionsDir, sessionID); err != nil {
+		return err
+	}
+	a.log.Info("session deleted", logger.F("session", sessionID))
+	return nil
+}
+
+func (a *App) RenameSession(caseID, sessionID, newTitle string) error {
+	sess, err := a.GetSession(caseID, sessionID)
+	if err != nil {
+		return err
+	}
+	if sess.Plan == nil {
+		sess.Plan = &session.Plan{}
+	}
+	sess.Plan.Objective = newTitle
+	sessionsDir := filepath.Join(a.cases.CaseDir(caseID), "sessions")
+	return sess.Save(sessionsDir)
+}
+
+func (a *App) DeleteReport(caseID, reportID string) error {
+	reportsDir := filepath.Join(a.cases.CaseDir(caseID), "reports")
+	if err := report.DeleteReport(reportsDir, reportID); err != nil {
+		return err
+	}
+	a.log.Info("report deleted", logger.F("report", reportID))
+	return nil
+}
+
+func (a *App) RenameReport(caseID, reportID, newTitle string) error {
+	reportsDir := filepath.Join(a.cases.CaseDir(caseID), "reports")
+	return report.RenameReport(reportsDir, reportID, newTitle)
+}
+
 // --- Analysis (within Session) ---
 
 func (a *App) SendMessage(caseID, sessionID, content string) error {
@@ -211,14 +274,7 @@ func (a *App) SendMessage(caseID, sessionID, content string) error {
 	schemaCtx := engine.SchemaContext()
 
 	var systemPrompt string
-	switch sess.Phase {
-	case session.PhasePlanning:
-		systemPrompt = buildPlanningPrompt(schemaCtx)
-	case session.PhaseReview:
-		systemPrompt = buildReviewPrompt()
-	default:
-		systemPrompt = buildPlanningPrompt(schemaCtx)
-	}
+	systemPrompt = buildPlanningPrompt(schemaCtx)
 
 	// Build messages for LLM
 	var messages []llm.Message
@@ -422,14 +478,9 @@ func (a *App) executePlan(caseID, sessionID string) {
 		}
 	}
 
-	// Transition to review
-	sess.TransitionToReview()
-	sess.Save(sessionsDir)
-	a.log.Info("execution complete, entering review", logger.F("session", sessionID))
-	wailsRuntime.EventsEmit(a.ctx, "session:phase", map[string]any{"session": sessionID, "phase": "review"})
-
-	// Send review summary via chat
-	a.sendReviewSummary(caseID, sessionID)
+	// Generate review summary and report, then finalize
+	a.log.Info("execution complete, generating report", logger.F("session", sessionID))
+	a.generateAndFinalize(caseID, sessionID)
 }
 
 func (a *App) dependenciesMet(sess *session.Session, step *session.Step) bool {
@@ -458,9 +509,8 @@ func (a *App) executeSQLStep(engine *dbengine.Engine, sess *session.Session, ste
 	// Build summary from result
 	summary := fmt.Sprintf("%d rows returned. Columns: %s", result.RowCount, strings.Join(result.Columns, ", "))
 	if result.RowCount > 0 && result.RowCount <= 20 {
-		// Include actual data for small result sets
-		dataBytes, _ := json.Marshal(result.Rows)
-		summary += "\nData: " + string(dataBytes)
+		dataBytes, _ := json.MarshalIndent(result.Rows, "", "  ")
+		summary += "\n\n```json\n" + string(dataBytes) + "\n```"
 	}
 
 	step.Result = &session.StepResult{Summary: summary}
@@ -563,75 +613,82 @@ Respond with ONLY the corrected SQL query, no explanation.`, schemaCtx, step.SQL
 	return a.executeSQLStep(engine, sess, step)
 }
 
-func (a *App) sendReviewSummary(caseID, sessionID string) {
+func (a *App) generateAndFinalize(caseID, sessionID string) {
 	sess, err := a.GetSession(caseID, sessionID)
 	if err != nil {
 		return
 	}
-
-	if a.backend == nil {
-		return
-	}
-
-	// Gather all step results for LLM review
-	var context strings.Builder
-	fmt.Fprintf(&context, "## Investigation Objective\n%s\n\n", sess.Plan.Objective)
-	for _, p := range sess.Plan.Perspectives {
-		fmt.Fprintf(&context, "### %s: %s\n", p.ID, p.Description)
-		for _, s := range p.Steps {
-			fmt.Fprintf(&context, "#### %s [%s]: %s\n", s.ID, s.Type, s.Description)
-			if s.Status == session.StepDone && s.Result != nil {
-				fmt.Fprintf(&context, "%s\n", s.Result.Summary)
-			} else if s.Status == session.StepFailed && s.Error != nil {
-				fmt.Fprintf(&context, "Failed: %s\n", s.Error.Message)
-			} else if s.Status == session.StepSkipped {
-				context.WriteString("Skipped\n")
-			}
-			context.WriteString("\n")
-		}
-	}
-
-	a.log.Info("generating review summary via LLM")
-
-	// Persist report header as a session message so it survives reload
-	sess.AddMessage("report_header", "Analysis Review Report")
 	sessionsDir := filepath.Join(a.cases.CaseDir(caseID), "sessions")
-	sess.Save(sessionsDir)
 
-	wailsRuntime.EventsEmit(a.ctx, "chat:report_start", map[string]any{
-		"session": sessionID,
-		"title":   "Analysis Review Report",
-	})
+	// Generate LLM review summary
+	if a.backend != nil {
+		var analysisCtx strings.Builder
+		fmt.Fprintf(&analysisCtx, "## Investigation Objective\n%s\n\n", sess.Plan.Objective)
+		for _, p := range sess.Plan.Perspectives {
+			fmt.Fprintf(&analysisCtx, "### %s: %s\n", p.ID, p.Description)
+			for _, s := range p.Steps {
+				fmt.Fprintf(&analysisCtx, "#### %s [%s]: %s\n", s.ID, s.Type, s.Description)
+				if s.Status == session.StepDone && s.Result != nil {
+					fmt.Fprintf(&analysisCtx, "%s\n", s.Result.Summary)
+				} else if s.Status == session.StepFailed && s.Error != nil {
+					fmt.Fprintf(&analysisCtx, "Failed: %s\n", s.Error.Message)
+				} else if s.Status == session.StepSkipped {
+					analysisCtx.WriteString("Skipped\n")
+				}
+				analysisCtx.WriteString("\n")
+			}
+		}
 
-	// Stream the review to chat
-	var fullReview string
-	a.backend.ChatStream(a.ctx, &llm.ChatRequest{
-		SystemPrompt: `You are a data analysis reviewer. Based on the analysis results below, provide:
+		a.log.Info("generating review summary via LLM")
+		sess.AddMessage("report_header", "Analysis Review Report")
+		sess.Save(sessionsDir)
+		wailsRuntime.EventsEmit(a.ctx, "chat:report_start", map[string]any{
+			"session": sessionID, "title": "Analysis Review Report",
+		})
+
+		var fullReview string
+		a.backend.ChatStream(a.ctx, &llm.ChatRequest{
+			SystemPrompt: `You are a data analysis reviewer. Based on the analysis results below, provide:
 1. A concise executive summary of key findings
 2. Notable patterns or concerns identified
 3. Recommended next steps or areas for deeper analysis
 
 Write in the user's language. Be concise and actionable. Use markdown formatting.`,
-		Messages: []llm.Message{{Role: "user", Content: context.String()}},
-	}, func(token string, done bool) {
-		if !done {
-			fullReview += token
-			wailsRuntime.EventsEmit(a.ctx, "chat:stream", map[string]any{
-				"session": sessionID,
-				"token":   token,
-			})
-		}
-	})
+			Messages: []llm.Message{{Role: "user", Content: analysisCtx.String()}},
+		}, func(token string, done bool) {
+			if !done {
+				fullReview += token
+				wailsRuntime.EventsEmit(a.ctx, "chat:stream", map[string]any{
+					"session": sessionID, "token": token,
+				})
+			}
+		})
 
-	if fullReview != "" {
-		sess.AddMessage("assistant", fullReview)
-		sessionsDir := filepath.Join(a.cases.CaseDir(caseID), "sessions")
-		sess.Save(sessionsDir)
+		if fullReview != "" {
+			sess.AddMessage("assistant", fullReview)
+		}
 	}
 
-	wailsRuntime.EventsEmit(a.ctx, "chat:complete", map[string]any{
-		"session": sessionID,
-		"content": fullReview,
+	// Generate and save report
+	r, err := report.GenerateFromSession(sess)
+	if err != nil {
+		a.log.Error("report generation failed", logger.F("error", err.Error()))
+		sess.Save(sessionsDir)
+		return
+	}
+	reportsDir := filepath.Join(a.cases.CaseDir(caseID), "reports")
+	r.SaveToCase(reportsDir)
+
+	// Finalize session
+	sess.Finalize()
+	sess.AddMessage("report_link", r.ID+"|"+r.Title)
+	sess.Save(sessionsDir)
+
+	a.log.Info("session finalized with report", logger.F("session", sessionID), logger.F("report", r.ID))
+	wailsRuntime.EventsEmit(a.ctx, "chat:complete", map[string]any{"session": sessionID, "content": ""})
+	wailsRuntime.EventsEmit(a.ctx, "session:phase", map[string]any{"session": sessionID, "phase": "done"})
+	wailsRuntime.EventsEmit(a.ctx, "session:report_ready", map[string]any{
+		"session": sessionID, "report_id": r.ID, "title": r.Title,
 	})
 }
 
@@ -666,47 +723,6 @@ func (a *App) ExecuteSQL(caseID, sessionID, sql string) (*dbengine.QueryResult, 
 	}
 
 	return result, nil
-}
-
-func (a *App) RequestAdditionalAnalysis(caseID, sessionID string) error {
-	sess, err := a.GetSession(caseID, sessionID)
-	if err != nil {
-		return err
-	}
-	if err := sess.RequestAdditionalAnalysis(); err != nil {
-		return err
-	}
-	sessionsDir := filepath.Join(a.cases.CaseDir(caseID), "sessions")
-	if err := sess.Save(sessionsDir); err != nil {
-		return err
-	}
-	wailsRuntime.EventsEmit(a.ctx, "session:phase", map[string]any{"session": sessionID, "phase": "planning"})
-	return nil
-}
-
-func (a *App) FinalizeSession(caseID, sessionID string) (*report.Report, error) {
-	sess, err := a.GetSession(caseID, sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	r, err := report.GenerateFromSession(sess)
-	if err != nil {
-		return nil, err
-	}
-
-	reportsDir := filepath.Join(a.cases.CaseDir(caseID), "reports")
-	if err := r.SaveToCase(reportsDir); err != nil {
-		return nil, err
-	}
-
-	sess.Finalize()
-	sessionsDir := filepath.Join(a.cases.CaseDir(caseID), "sessions")
-	sess.Save(sessionsDir)
-
-	a.log.Info("session finalized", logger.F("session", sessionID), logger.F("report", r.ID))
-	wailsRuntime.EventsEmit(a.ctx, "session:phase", map[string]any{"session": sessionID, "phase": "done"})
-	return r, nil
 }
 
 // --- Jobs ---
@@ -816,12 +832,3 @@ When outputting the plan, use EXACTLY this structure in a ` + "```json" + ` code
 Only output the JSON when you and the user have agreed on the analysis plan.`
 }
 
-func buildReviewPrompt() string {
-	return `You are a data analysis reviewer.
-Synthesize the analysis results and provide:
-1. Key findings summary
-2. Areas needing additional analysis
-3. Conclusions
-
-Respond in the user's language.`
-}

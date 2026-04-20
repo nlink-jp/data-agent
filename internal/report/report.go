@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -74,15 +75,15 @@ func GenerateFromSession(sess *session.Session) (*Report, error) {
 				fmt.Fprintf(&sb, "```sql\n%s\n```\n\n", entry.SQL)
 			}
 			if entry.Result != nil {
-				fmt.Fprintf(&sb, "**Result:** %s\n\n", entry.Result.Summary)
+				fmt.Fprintf(&sb, "**Result:**\n\n%s\n\n", entry.Result.Summary)
 			}
 			if entry.Error != "" {
-				fmt.Fprintf(&sb, "**Error:** %s\n\n", entry.Error)
+				fmt.Fprintf(&sb, "**Error:**\n\n```\n%s\n```\n\n", entry.Error)
 				if entry.Decision != "" {
 					fmt.Fprintf(&sb, "**Decision:** %s\n\n", entry.Decision)
 				}
 			}
-			fmt.Fprintf(&sb, "Duration: %s | Plan v%d\n\n", entry.Duration, entry.PlanVersion)
+			fmt.Fprintf(&sb, "*Duration: %s | Plan v%d*\n\n---\n\n", entry.Duration, entry.PlanVersion)
 		}
 	}
 
@@ -148,7 +149,34 @@ func (r *Report) ExportFile(path string) error {
 	return os.WriteFile(path, []byte(r.Content), 0o600)
 }
 
-// ListReports returns all reports in a reports directory.
+// DeleteReport removes a report from disk.
+func DeleteReport(reportsDir, reportID string) error {
+	jsonPath := filepath.Join(reportsDir, reportID+".json")
+	mdPath := filepath.Join(reportsDir, reportID+".md")
+	os.Remove(mdPath)
+	return os.Remove(jsonPath)
+}
+
+// RenameReport updates the title of a report.
+func RenameReport(reportsDir, reportID, newTitle string) error {
+	path := filepath.Join(reportsDir, reportID+".json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var r Report
+	if err := json.Unmarshal(data, &r); err != nil {
+		return err
+	}
+	r.Title = newTitle
+	updated, err := json.MarshalIndent(r, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, updated, 0o600)
+}
+
+// ListReports returns all reports in a reports directory, sorted newest first.
 func ListReports(reportsDir string) ([]Report, error) {
 	entries, err := os.ReadDir(reportsDir)
 	if err != nil {
@@ -172,5 +200,9 @@ func ListReports(reportsDir string) ([]Report, error) {
 			reports = append(reports, r)
 		}
 	}
+
+	sort.Slice(reports, func(i, j int) bool {
+		return reports[i].CreatedAt.After(reports[j].CreatedAt)
+	})
 	return reports, nil
 }

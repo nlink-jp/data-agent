@@ -3,9 +3,9 @@
 import {casemgr} from '../models';
 import {session} from '../models';
 import {dbengine} from '../models';
-import {report} from '../models';
 import {config} from '../models';
 import {job} from '../models';
+import {report} from '../models';
 
 export function ApprovePlan(arg1:string,arg2:string):Promise<void>;
 
@@ -19,11 +19,13 @@ export function CreateSession(arg1:string):Promise<session.Session>;
 
 export function DeleteCase(arg1:string):Promise<void>;
 
+export function DeleteReport(arg1:string,arg2:string):Promise<void>;
+
+export function DeleteSession(arg1:string,arg2:string):Promise<void>;
+
 export function ExecuteSQL(arg1:string,arg2:string,arg3:string):Promise<dbengine.QueryResult>;
 
 export function ExportReport(arg1:string,arg2:string,arg3:string):Promise<void>;
-
-export function FinalizeSession(arg1:string,arg2:string):Promise<report.Report>;
 
 export function GetConfig():Promise<config.Config>;
 
@@ -45,7 +47,11 @@ export function OpenCase(arg1:string):Promise<void>;
 
 export function RemoveTable(arg1:string,arg2:string):Promise<void>;
 
-export function RequestAdditionalAnalysis(arg1:string,arg2:string):Promise<void>;
+export function RenameReport(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function RenameSession(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function ReopenSession(arg1:string,arg2:string):Promise<void>;
 
 export function SaveConfig(arg1:config.Config):Promise<void>;
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -86,6 +87,16 @@ func (s *Session) Finalize() error {
 		return fmt.Errorf("cannot finalize from %s phase", s.Phase)
 	}
 	s.Phase = PhaseDone
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+// Reopen transitions a Done session back to Planning for additional analysis.
+func (s *Session) Reopen() error {
+	if s.Phase != PhaseDone {
+		return fmt.Errorf("cannot reopen from %s phase", s.Phase)
+	}
+	s.Phase = PhasePlanning
 	s.UpdatedAt = time.Now()
 	return nil
 }
@@ -207,7 +218,17 @@ func ListSessions(sessionsDir string) ([]Session, error) {
 		}
 		sessions = append(sessions, *s)
 	}
+
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].CreatedAt.After(sessions[j].CreatedAt)
+	})
 	return sessions, nil
+}
+
+// DeleteSession removes a session from disk.
+func DeleteSession(sessionsDir, sessionID string) error {
+	dir := filepath.Join(sessionsDir, sessionID)
+	return os.RemoveAll(dir)
 }
 
 func writeJSON(path string, v any) error {

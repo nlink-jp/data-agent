@@ -26,16 +26,20 @@ export function DeleteCase(arg1) {
   return window['go']['main']['App']['DeleteCase'](arg1);
 }
 
+export function DeleteReport(arg1, arg2) {
+  return window['go']['main']['App']['DeleteReport'](arg1, arg2);
+}
+
+export function DeleteSession(arg1, arg2) {
+  return window['go']['main']['App']['DeleteSession'](arg1, arg2);
+}
+
 export function ExecuteSQL(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExecuteSQL'](arg1, arg2, arg3);
 }
 
 export function ExportReport(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExportReport'](arg1, arg2, arg3);
-}
-
-export function FinalizeSession(arg1, arg2) {
-  return window['go']['main']['App']['FinalizeSession'](arg1, arg2);
 }
 
 export function GetConfig() {
@@ -78,8 +82,16 @@ export function RemoveTable(arg1, arg2) {
   return window['go']['main']['App']['RemoveTable'](arg1, arg2);
 }
 
-export function RequestAdditionalAnalysis(arg1, arg2) {
-  return window['go']['main']['App']['RequestAdditionalAnalysis'](arg1, arg2);
+export function RenameReport(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RenameReport'](arg1, arg2, arg3);
+}
+
+export function RenameSession(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RenameSession'](arg1, arg2, arg3);
+}
+
+export function ReopenSession(arg1, arg2) {
+  return window['go']['main']['App']['ReopenSession'](arg1, arg2);
 }
 
 export function SaveConfig(arg1) {
