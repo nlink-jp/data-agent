@@ -10,8 +10,8 @@ func TestWrapGuard(t *testing.T) {
 	if !strings.Contains(wrapped, "test data") {
 		t.Error("wrapped data should contain original content")
 	}
-	if !strings.HasPrefix(wrapped, "<data_") {
-		t.Error("wrapped data should start with <data_ tag")
+	if !strings.HasPrefix(wrapped, "<user_data_") {
+		t.Error("wrapped data should start with <user_data_ tag (nlk/guard)")
 	}
 	if !strings.HasSuffix(strings.TrimSpace(wrapped), ">") {
 		t.Error("wrapped data should end with closing tag")

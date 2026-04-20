@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/nlink-jp/data-agent/internal/analysis"
 	"github.com/nlink-jp/data-agent/internal/dbengine"
 	"github.com/nlink-jp/data-agent/internal/llm"
+	"github.com/nlink-jp/nlk/backoff"
 )
 
 // EventSink receives execution events for the UI layer.
@@ -110,7 +112,13 @@ func (e *Executor) RunPlan(ctx context.Context, sess *Session, saveFunc func() e
 
 				if step.Type == StepTypeSQL && step.RetryCount < e.Config.MaxSQLRetries {
 					step.RetryCount++
-					e.Events.OnLog("info", "retrying SQL step", map[string]string{"step": step.ID, "retry": fmt.Sprintf("%d", step.RetryCount)})
+					// Exponential backoff before retry (nlk/backoff)
+					bo := backoff.New(backoff.WithBase(2*time.Second), backoff.WithMax(30*time.Second))
+					wait := bo.Duration(step.RetryCount - 1)
+					e.Events.OnLog("info", "retrying SQL step", map[string]string{
+						"step": step.ID, "retry": fmt.Sprintf("%d", step.RetryCount), "backoff": wait.String(),
+					})
+					time.Sleep(wait)
 					if retryErr := e.retrySQLWithFeedback(ctx, sess, step); retryErr == nil {
 						stepErr = nil
 						step.Status = StepRunning // reset so it gets marked Done below

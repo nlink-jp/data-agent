@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/nlink-jp/data-agent/internal/llm"
+	"github.com/nlink-jp/nlk/jsonfix"
 )
 
 // SlidingWindowConfig holds configuration for sliding window analysis.
@@ -125,19 +126,14 @@ Output ONLY valid JSON:
 			return nil, fmt.Errorf("window %d: %w", windowIdx, err)
 		}
 
-		// Parse response
+		// Parse response using nlk/jsonfix for robust extraction
 		var windowResp struct {
 			Summary     string    `json:"summary"`
 			NewFindings []Finding `json:"new_findings"`
 		}
-		if err := json.Unmarshal([]byte(resp.Content), &windowResp); err != nil {
-			// Try to extract JSON from response
-			content := resp.Content
-			if idx := strings.Index(content, "{"); idx >= 0 {
-				if endIdx := strings.LastIndex(content, "}"); endIdx > idx {
-					json.Unmarshal([]byte(content[idx:endIdx+1]), &windowResp)
-				}
-			}
+		extracted, extractErr := jsonfix.Extract(resp.Content)
+		if extractErr == nil {
+			json.Unmarshal([]byte(extracted), &windowResp)
 		}
 
 		if windowResp.Summary != "" {

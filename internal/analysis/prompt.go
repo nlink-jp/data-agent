@@ -1,23 +1,24 @@
 package analysis
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"strings"
+
+	"github.com/nlink-jp/nlk/guard"
 )
 
-// guardTag generates a unique nonce tag for prompt injection defense.
-func guardTag() string {
-	b := make([]byte, 8)
-	rand.Read(b)
-	return hex.EncodeToString(b)
-}
-
 // WrapGuard wraps untrusted data in nonce-tagged XML to prevent prompt injection.
+// Uses nlk/guard for 128-bit random nonce with collision detection.
+// Falls back to unwrapped data on the (negligible probability) collision error.
 func WrapGuard(data string) string {
-	tag := guardTag()
-	return fmt.Sprintf("<data_%s>\n%s\n</data_%s>", tag, data, tag)
+	tag := guard.NewTag()
+	wrapped, err := tag.Wrap(data)
+	if err != nil {
+		// Tag collision (128-bit nonce — practically impossible).
+		// Return data prefixed with a warning marker rather than failing.
+		return "[DATA]\n" + data + "\n[/DATA]"
+	}
+	return wrapped
 }
 
 // BuildPlanningSystemPrompt builds the system prompt for the planning phase.

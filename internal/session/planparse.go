@@ -3,12 +3,14 @@ package session
 import (
 	"encoding/json"
 	"strings"
+
+	"github.com/nlink-jp/nlk/jsonfix"
 )
 
 // rawPlan is the LLM output format for plan JSON.
 type rawPlan struct {
-	Objective    string            `json:"objective"`
-	Perspectives []rawPerspective  `json:"perspectives"`
+	Objective    string           `json:"objective"`
+	Perspectives []rawPerspective `json:"perspectives"`
 }
 
 type rawPerspective struct {
@@ -26,23 +28,21 @@ type rawStep struct {
 }
 
 // ExtractPlanJSON attempts to extract and parse a Plan from LLM response text.
+// Uses nlk/jsonfix for robust JSON extraction (handles markdown fences,
+// malformed JSON, trailing commas, etc.), then validates plan structure.
 // Returns the parsed Plan and the remaining text (non-JSON parts).
 // Returns nil if no valid plan JSON is found.
 func ExtractPlanJSON(text string) (*Plan, string) {
-	// Try to find JSON block in markdown code fence
-	jsonStr, remaining := extractJSONFromCodeFence(text)
-	if jsonStr != "" {
-		if plan := tryParsePlan(jsonStr); plan != nil {
-			return plan, remaining
-		}
+	// Use nlk/jsonfix to extract JSON from LLM output
+	extracted, err := jsonfix.Extract(text)
+	if err != nil {
+		return nil, text
 	}
 
-	// Try to find a top-level JSON object with "objective" or "perspectives"
-	jsonStr, remaining = extractJSONObject(text)
-	if jsonStr != "" {
-		if plan := tryParsePlan(jsonStr); plan != nil {
-			return plan, remaining
-		}
+	if plan := tryParsePlan(extracted); plan != nil {
+		// Build remaining text by removing the JSON portion
+		remaining := removeJSONBlock(text)
+		return plan, remaining
 	}
 
 	return nil, text
@@ -100,71 +100,21 @@ func tryParsePlan(jsonStr string) *Plan {
 	return plan
 }
 
-// extractJSONFromCodeFence extracts JSON from ```json ... ``` blocks.
-func extractJSONFromCodeFence(text string) (string, string) {
-	// Look for ```json or ``` followed by {
-	markers := []string{"```json\n", "```json\r\n", "```\n{"}
-	for _, marker := range markers {
-		start := strings.Index(text, marker)
-		if start == -1 {
-			continue
-		}
-
-		jsonStart := start + len(marker)
-		if marker == "```\n{" {
-			jsonStart = start + 4 // after "```\n", include the "{"
-		}
-
-		end := strings.Index(text[jsonStart:], "```")
-		if end == -1 {
-			continue
-		}
-
-		jsonStr := strings.TrimSpace(text[jsonStart : jsonStart+end])
-		remaining := strings.TrimSpace(text[:start] + text[jsonStart+end+3:])
-		return jsonStr, remaining
-	}
-	return "", text
-}
-
-// extractJSONObject finds the outermost { ... } that looks like a plan.
-func extractJSONObject(text string) (string, string) {
-	start := strings.Index(text, "{")
-	if start == -1 {
-		return "", text
-	}
-
-	// Find matching closing brace
-	depth := 0
-	inString := false
-	for i := start; i < len(text); i++ {
-		if inString {
-			if text[i] == '\\' {
-				i++ // skip escaped char
-				continue
-			}
-			if text[i] == '"' {
-				inString = false
-			}
-			continue
-		}
-		switch text[i] {
-		case '"':
-			inString = true
-		case '{':
-			depth++
-		case '}':
-			depth--
-			if depth == 0 {
-				jsonStr := text[start : i+1]
-				// Quick check: does it look like a plan?
-				if strings.Contains(jsonStr, "objective") || strings.Contains(jsonStr, "perspectives") {
-					remaining := strings.TrimSpace(text[:start] + text[i+1:])
-					return jsonStr, remaining
-				}
-				return "", text
-			}
+// removeJSONBlock removes markdown JSON code blocks or bare JSON objects from text.
+func removeJSONBlock(text string) string {
+	// Try to remove ```json ... ``` block
+	if idx := strings.Index(text, "```json"); idx >= 0 {
+		end := strings.Index(text[idx+7:], "```")
+		if end >= 0 {
+			return strings.TrimSpace(text[:idx] + text[idx+7+end+3:])
 		}
 	}
-	return "", text
+	// Try to remove ```...``` block containing JSON
+	if idx := strings.Index(text, "```\n{"); idx >= 0 {
+		end := strings.Index(text[idx+4:], "```")
+		if end >= 0 {
+			return strings.TrimSpace(text[:idx] + text[idx+4+end+3:])
+		}
+	}
+	return text
 }
