@@ -1,66 +1,104 @@
-import {useState, useEffect} from 'react';
-import './App.css';
-import {ListCases, CreateCase} from "../wailsjs/go/main/App";
-import {EventsOn} from "../wailsjs/runtime/runtime";
+import { useState, useEffect, useRef, useCallback } from "react";
+import "./App.css";
+import { ListCases, ImportData } from "../wailsjs/go/main/App";
+import CaseListView from "./components/CaseListView";
+import SidePanel from "./components/SidePanel";
+import ChatPanel from "./components/ChatPanel";
+import LogPanel from "./components/LogPanel";
 
 function App() {
+    const [view, setView] = useState("cases"); // "cases" or "analysis"
     const [cases, setCases] = useState([]);
-    const [logs, setLogs] = useState([]);
+    const [activeCaseId, setActiveCaseId] = useState(null);
+    const [activeSessionId, setActiveSessionId] = useState(null);
+    const refreshTablesRef = useRef(null);
 
-    useEffect(() => {
-        ListCases().then(result => {
-            if (result) setCases(result);
-        });
-        EventsOn("log:entry", (entry) => {
-            setLogs(prev => [...prev.slice(-49), entry]);
-        });
+    const refreshCases = useCallback(async () => {
+        try {
+            const result = await ListCases();
+            setCases(result || []);
+        } catch {
+            setCases([]);
+        }
     }, []);
 
-    const handleCreate = () => {
-        const name = prompt("Case name:");
-        if (name) {
-            CreateCase(name).then(() => {
-                ListCases().then(result => {
-                    if (result) setCases(result);
-                });
-            });
+    useEffect(() => {
+        refreshCases();
+    }, [refreshCases]);
+
+    const handleOpenCase = (id) => {
+        setActiveCaseId(id);
+        setActiveSessionId(null);
+        setView("analysis");
+    };
+
+    const handleBack = () => {
+        setView("cases");
+        setActiveCaseId(null);
+        setActiveSessionId(null);
+        refreshCases();
+    };
+
+    const handleImport = async () => {
+        const path = prompt("File path to import (CSV, JSON, JSONL):");
+        if (!path) return;
+        const table = prompt("Table name:");
+        if (!table) return;
+        try {
+            await ImportData(activeCaseId, path, table);
+            if (refreshTablesRef.current) refreshTablesRef.current();
+        } catch (err) {
+            alert(`Import error: ${err}`);
         }
     };
 
+    const activeCase = cases.find(c => c.id === activeCaseId);
+
     return (
-        <div id="App" style={{padding: "20px", fontFamily: "monospace"}}>
-            <h1>data-agent</h1>
-            <p>Data analysis tool — {cases.length} case(s)</p>
-            <button onClick={handleCreate}>New Case</button>
+        <div className="app-layout">
+            <div className="app-header">
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {view === "analysis" && (
+                        <button onClick={handleBack} style={{ padding: "4px 8px", fontSize: 12 }}>Back</button>
+                    )}
+                    <h1>data-agent</h1>
+                    {activeCase && (
+                        <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+                            / {activeCase.name}
+                        </span>
+                    )}
+                </div>
+                <div className="controls">
+                    {view === "analysis" && (
+                        <button onClick={handleImport}>Import Data</button>
+                    )}
+                </div>
+            </div>
 
-            <h2>Cases</h2>
-            {cases.length === 0 ? (
-                <p>No cases yet.</p>
-            ) : (
-                <ul>
-                    {cases.map(c => (
-                        <li key={c.id}>{c.name} ({c.status})</li>
-                    ))}
-                </ul>
-            )}
-
-            <h2>Log</h2>
-            <div style={{
-                background: "#1a1a2e",
-                color: "#0f0",
-                padding: "10px",
-                maxHeight: "200px",
-                overflow: "auto",
-                fontSize: "12px"
-            }}>
-                {logs.length === 0 ? (
-                    <p>No log entries.</p>
+            <div className="app-main">
+                {view === "cases" ? (
+                    <CaseListView
+                        cases={cases}
+                        onOpenCase={handleOpenCase}
+                        refresh={refreshCases}
+                    />
                 ) : (
-                    logs.map((entry, i) => (
-                        <div key={i}>[{entry.level}] {entry.message}</div>
-                    ))
+                    <div className="analysis-layout">
+                        <SidePanel
+                            caseId={activeCaseId}
+                            activeSessionId={activeSessionId}
+                            onSelectSession={setActiveSessionId}
+                            onRefreshTables={refreshTablesRef}
+                        />
+                        <ChatPanel
+                            caseId={activeCaseId}
+                            sessionId={activeSessionId}
+                        />
+                    </div>
                 )}
             </div>
+
+            <LogPanel />
         </div>
     );
 }
