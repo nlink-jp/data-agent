@@ -17,6 +17,15 @@ type Config struct {
 	Analysis  AnalysisConfig  `toml:"analysis"`
 	Container ContainerConfig `toml:"container"`
 	Tuning    TuningConfig    `toml:"tuning"`
+	Window    WindowConfig    `toml:"window"`
+}
+
+// WindowConfig holds window position and size.
+type WindowConfig struct {
+	X      int `toml:"x"`
+	Y      int `toml:"y"`
+	Width  int `toml:"width"`
+	Height int `toml:"height"`
 }
 
 // LLMConfig selects the active LLM backend.
@@ -87,6 +96,10 @@ func DefaultConfig() *Config {
 			CJKTokenRatio:   2.0,
 			ASCIITokenRatio: 1.3,
 			CharsPerToken:   4,
+		},
+		Window: WindowConfig{
+			Width:  1280,
+			Height: 800,
 		},
 	}
 }

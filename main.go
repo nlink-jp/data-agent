@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 
+	"github.com/nlink-jp/data-agent/internal/config"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -12,18 +13,31 @@ import (
 var assets embed.FS
 
 func main() {
-	// Create an instance of the app structure
 	app := NewApp()
 
-	// Create application with options
-	err := wails.Run(&options.App{
+	// Pre-load config for window dimensions
+	cfg, err := config.Load(config.DefaultConfigPath())
+	if err != nil {
+		cfg = config.DefaultConfig()
+	}
+
+	width := cfg.Window.Width
+	height := cfg.Window.Height
+	if width < 400 {
+		width = 1280
+	}
+	if height < 300 {
+		height = 800
+	}
+
+	err = wails.Run(&options.App{
 		Title:  "data-agent",
-		Width:  1024,
-		Height: 768,
+		Width:  width,
+		Height: height,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		BackgroundColour: &options.RGBA{R: 13, G: 17, B: 23, A: 1},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
 		Bind: []interface{}{

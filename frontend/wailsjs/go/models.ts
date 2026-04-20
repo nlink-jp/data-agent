@@ -63,6 +63,24 @@ export namespace config {
 	        this.MaxRecordsPerWindow = source["MaxRecordsPerWindow"];
 	    }
 	}
+	export class WindowConfig {
+	    X: number;
+	    Y: number;
+	    Width: number;
+	    Height: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new WindowConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.X = source["X"];
+	        this.Y = source["Y"];
+	        this.Width = source["Width"];
+	        this.Height = source["Height"];
+	    }
+	}
 	export class TuningConfig {
 	    CJKTokenRatio: number;
 	    ASCIITokenRatio: number;
@@ -144,6 +162,7 @@ export namespace config {
 	    Analysis: AnalysisConfig;
 	    Container: ContainerConfig;
 	    Tuning: TuningConfig;
+	    Window: WindowConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -157,6 +176,7 @@ export namespace config {
 	        this.Analysis = this.convertValues(source["Analysis"], AnalysisConfig);
 	        this.Container = this.convertValues(source["Container"], ContainerConfig);
 	        this.Tuning = this.convertValues(source["Tuning"], TuningConfig);
+	        this.Window = this.convertValues(source["Window"], WindowConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -177,6 +197,7 @@ export namespace config {
 		    return a;
 		}
 	}
+	
 	
 	
 	

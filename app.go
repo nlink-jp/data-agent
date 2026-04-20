@@ -94,10 +94,23 @@ func (a *App) startup(ctx context.Context) {
 		a.log.Warn("diagnostic log open failed", logger.F("error", err.Error()))
 	}
 
+	// Restore window position (if previously saved)
+	if cfg.Window.X != 0 || cfg.Window.Y != 0 {
+		wailsRuntime.WindowSetPosition(ctx, cfg.Window.X, cfg.Window.Y)
+	}
+
 	a.log.Info("data-agent started", logger.F("data_dir", dataDir))
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	// Save window state
+	if a.cfg != nil {
+		x, y := wailsRuntime.WindowGetPosition(ctx)
+		w, h := wailsRuntime.WindowGetSize(ctx)
+		a.cfg.Window = config.WindowConfig{X: x, Y: y, Width: w, Height: h}
+		config.Save(a.cfg, config.DefaultConfigPath())
+	}
+
 	if a.diag != nil {
 		a.diag.Close()
 	}

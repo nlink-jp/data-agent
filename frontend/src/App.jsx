@@ -6,9 +6,10 @@ import SidePanel from "./components/SidePanel";
 import ChatPanel from "./components/ChatPanel";
 import ReportView from "./components/ReportView";
 import LogPanel from "./components/LogPanel";
+import SettingsView from "./components/SettingsView";
 
 function App() {
-    const [view, setView] = useState("cases"); // "cases", "analysis", "report"
+    const [view, setView] = useState("cases"); // "cases", "analysis", "report", "settings"
     const [cases, setCases] = useState([]);
     const [activeCaseId, setActiveCaseId] = useState(null);
     const [activeSessionId, setActiveSessionId] = useState(null);
@@ -96,11 +97,17 @@ function App() {
                         </span>
                     )}
                 </div>
-                <div className="controls" />
+                <div className="controls">
+                    <button onClick={() => setView(view === "settings" ? "cases" : "settings")} style={{ fontSize: 12 }}>
+                        {view === "settings" ? "Close Settings" : "Settings"}
+                    </button>
+                </div>
             </div>
 
             <div className="app-main">
-                {view === "cases" ? (
+                {view === "settings" ? (
+                    <SettingsView onClose={() => setView("cases")} />
+                ) : view === "cases" ? (
                     <CaseListView
                         cases={cases}
                         onOpenCase={handleOpenCase}
