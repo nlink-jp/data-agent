@@ -50,11 +50,11 @@ input:focus, textarea:focus { border-color: var(--accent); }
   font-size: 11px;
   font-weight: 600;
 }
-.badge.planning { background: #1f6feb33; color: var(--accent); }
-.badge.execution { background: #3fb95033; color: var(--success); }
-.badge.review { background: #d2992233; color: var(--warning); }
-.badge.done, .badge.closed { background: #21262d; color: var(--text-secondary); }
-.badge.open { background: #3fb95033; color: var(--success); }
+.badge.planning { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.badge.execution { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
+.badge.review { background: color-mix(in srgb, var(--warning) 20%, transparent); color: var(--warning); }
+.badge.done, .badge.closed { background: var(--bg-tertiary); color: var(--text-secondary); }
+.badge.open { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
 
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-primary); }
