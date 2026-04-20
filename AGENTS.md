@@ -22,10 +22,15 @@ data-agent/
 ├── app.go                   # Wails app struct and bindings
 ├── internal/
 │   ├── casemgr/             # Case management, DB lifecycle
-│   ├── analysis/            # DuckDB engine, SQL, sliding window
-│   ├── client/              # LLM client (Vertex AI + local)
+│   ├── dbengine/            # DuckDB operations, SQL execution
+│   ├── llm/                 # LLM client interface (Vertex AI + local)
+│   ├── session/             # Analysis session, Planning→Execution→Review
+│   ├── analysis/            # SQL generation, sliding window
+│   ├── job/                 # Job management, background execution
+│   ├── report/              # Report generation (plan + exec log)
 │   ├── config/              # config.toml management
-│   └── container/           # Podman/Docker execution
+│   ├── container/           # Podman/Docker execution (Phase 2)
+│   └── logger/              # Structured logging + log window
 ├── frontend/
 │   └── src/                 # React frontend
 ├── docs/
@@ -43,6 +48,9 @@ data-agent/
 
 - DuckDB + Wails requires `no_duckdb_arrow` build tag — without it, build fails
 - Each case uses an independent DuckDB file — no shared central database
+- Analysis follows Planning→Execution→Review loop with structured investigation plans
+- LLM generates plans, code executes them — not LLM tool calling
+- 3-tier error handling: Minor (SQL retry), Moderate (step modify/skip), Critical (replan)
 - LLM interface is backend-agnostic: Vertex AI (ADC auth) or local LLM (OpenAI-compatible API with optional API key)
 - Config lives at `~/Library/Application Support/data-agent/config.toml`
 
