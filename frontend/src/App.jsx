@@ -106,7 +106,7 @@ function App() {
 
             <div className="app-main">
                 {view === "settings" ? (
-                    <SettingsView onClose={() => setView("cases")} />
+                    <SettingsView />
                 ) : view === "cases" ? (
                     <CaseListView
                         cases={cases}

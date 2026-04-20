@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { GetConfig, SaveConfig } from "../../wailsjs/go/main/App";
 
-export default function SettingsView({ onClose }) {
+export default function SettingsView() {
     const [cfg, setCfg] = useState(null);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState("");
@@ -38,10 +38,7 @@ export default function SettingsView({ onClose }) {
 
     return (
         <div style={{ flex: 1, overflow: "auto", padding: 24, maxWidth: 600 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h2 style={{ fontSize: 18 }}>Settings</h2>
-                <button onClick={onClose} style={{ fontSize: 12 }}>Close</button>
-            </div>
+            <h2 style={{ fontSize: 18, marginBottom: 20 }}>Settings</h2>
 
             <Section title="LLM Backend">
                 <Field label="Backend">
