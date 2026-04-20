@@ -52,8 +52,8 @@ func TestBuildInterpretSystemPrompt(t *testing.T) {
 	}
 }
 
-func TestBuildReviewSystemPrompt(t *testing.T) {
-	prompt := BuildReviewSystemPrompt()
+func TestBuildReviewSummaryPrompt(t *testing.T) {
+	prompt := BuildReviewSummaryPrompt()
 	if !strings.Contains(prompt, "reviewer") {
 		t.Error("review prompt should mention reviewer role")
 	}
