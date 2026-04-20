@@ -46,10 +46,10 @@ export namespace casemgr {
 export namespace config {
 	
 	export class AnalysisConfig {
-	    ContextLimit: number;
-	    OverlapRatio: number;
-	    MaxFindings: number;
-	    MaxRecordsPerWindow: number;
+	    context_limit: number;
+	    overlap_ratio: number;
+	    max_findings: number;
+	    max_records_per_window: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new AnalysisConfig(source);
@@ -57,17 +57,17 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.ContextLimit = source["ContextLimit"];
-	        this.OverlapRatio = source["OverlapRatio"];
-	        this.MaxFindings = source["MaxFindings"];
-	        this.MaxRecordsPerWindow = source["MaxRecordsPerWindow"];
+	        this.context_limit = source["context_limit"];
+	        this.overlap_ratio = source["overlap_ratio"];
+	        this.max_findings = source["max_findings"];
+	        this.max_records_per_window = source["max_records_per_window"];
 	    }
 	}
 	export class WindowConfig {
-	    X: number;
-	    Y: number;
-	    Width: number;
-	    Height: number;
+	    x: number;
+	    y: number;
+	    width: number;
+	    height: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new WindowConfig(source);
@@ -75,16 +75,16 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.X = source["X"];
-	        this.Y = source["Y"];
-	        this.Width = source["Width"];
-	        this.Height = source["Height"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.width = source["width"];
+	        this.height = source["height"];
 	    }
 	}
 	export class TuningConfig {
-	    CJKTokenRatio: number;
-	    ASCIITokenRatio: number;
-	    CharsPerToken: number;
+	    cjk_token_ratio: number;
+	    ascii_token_ratio: number;
+	    chars_per_token: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new TuningConfig(source);
@@ -92,14 +92,14 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.CJKTokenRatio = source["CJKTokenRatio"];
-	        this.ASCIITokenRatio = source["ASCIITokenRatio"];
-	        this.CharsPerToken = source["CharsPerToken"];
+	        this.cjk_token_ratio = source["cjk_token_ratio"];
+	        this.ascii_token_ratio = source["ascii_token_ratio"];
+	        this.chars_per_token = source["chars_per_token"];
 	    }
 	}
 	export class ContainerConfig {
-	    Runtime: string;
-	    Image: string;
+	    runtime: string;
+	    image: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ContainerConfig(source);
@@ -107,14 +107,14 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Runtime = source["Runtime"];
-	        this.Image = source["Image"];
+	        this.runtime = source["runtime"];
+	        this.image = source["image"];
 	    }
 	}
 	export class LocalLLMConfig {
-	    Endpoint: string;
-	    Model: string;
-	    APIKey: string;
+	    endpoint: string;
+	    model: string;
+	    api_key: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new LocalLLMConfig(source);
@@ -122,15 +122,15 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Endpoint = source["Endpoint"];
-	        this.Model = source["Model"];
-	        this.APIKey = source["APIKey"];
+	        this.endpoint = source["endpoint"];
+	        this.model = source["model"];
+	        this.api_key = source["api_key"];
 	    }
 	}
 	export class VertexAIConfig {
-	    Project: string;
-	    Region: string;
-	    Model: string;
+	    project: string;
+	    region: string;
+	    model: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new VertexAIConfig(source);
@@ -138,13 +138,13 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Project = source["Project"];
-	        this.Region = source["Region"];
-	        this.Model = source["Model"];
+	        this.project = source["project"];
+	        this.region = source["region"];
+	        this.model = source["model"];
 	    }
 	}
 	export class LLMConfig {
-	    Backend: string;
+	    backend: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new LLMConfig(source);
@@ -152,17 +152,17 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Backend = source["Backend"];
+	        this.backend = source["backend"];
 	    }
 	}
 	export class Config {
-	    LLM: LLMConfig;
-	    VertexAI: VertexAIConfig;
-	    LocalLLM: LocalLLMConfig;
-	    Analysis: AnalysisConfig;
-	    Container: ContainerConfig;
-	    Tuning: TuningConfig;
-	    Window: WindowConfig;
+	    llm: LLMConfig;
+	    vertex_ai: VertexAIConfig;
+	    local_llm: LocalLLMConfig;
+	    analysis: AnalysisConfig;
+	    container: ContainerConfig;
+	    tuning: TuningConfig;
+	    window: WindowConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -170,13 +170,13 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.LLM = this.convertValues(source["LLM"], LLMConfig);
-	        this.VertexAI = this.convertValues(source["VertexAI"], VertexAIConfig);
-	        this.LocalLLM = this.convertValues(source["LocalLLM"], LocalLLMConfig);
-	        this.Analysis = this.convertValues(source["Analysis"], AnalysisConfig);
-	        this.Container = this.convertValues(source["Container"], ContainerConfig);
-	        this.Tuning = this.convertValues(source["Tuning"], TuningConfig);
-	        this.Window = this.convertValues(source["Window"], WindowConfig);
+	        this.llm = this.convertValues(source["llm"], LLMConfig);
+	        this.vertex_ai = this.convertValues(source["vertex_ai"], VertexAIConfig);
+	        this.local_llm = this.convertValues(source["local_llm"], LocalLLMConfig);
+	        this.analysis = this.convertValues(source["analysis"], AnalysisConfig);
+	        this.container = this.convertValues(source["container"], ContainerConfig);
+	        this.tuning = this.convertValues(source["tuning"], TuningConfig);
+	        this.window = this.convertValues(source["window"], WindowConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

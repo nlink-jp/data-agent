@@ -11,61 +11,61 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	LLM       LLMConfig       `toml:"llm"`
-	VertexAI  VertexAIConfig  `toml:"vertex_ai"`
-	LocalLLM  LocalLLMConfig  `toml:"local_llm"`
-	Analysis  AnalysisConfig  `toml:"analysis"`
-	Container ContainerConfig `toml:"container"`
-	Tuning    TuningConfig    `toml:"tuning"`
-	Window    WindowConfig    `toml:"window"`
+	LLM       LLMConfig       `toml:"llm" json:"llm"`
+	VertexAI  VertexAIConfig  `toml:"vertex_ai" json:"vertex_ai"`
+	LocalLLM  LocalLLMConfig  `toml:"local_llm" json:"local_llm"`
+	Analysis  AnalysisConfig  `toml:"analysis" json:"analysis"`
+	Container ContainerConfig `toml:"container" json:"container"`
+	Tuning    TuningConfig    `toml:"tuning" json:"tuning"`
+	Window    WindowConfig    `toml:"window" json:"window"`
 }
 
 // WindowConfig holds window position and size.
 type WindowConfig struct {
-	X      int `toml:"x"`
-	Y      int `toml:"y"`
-	Width  int `toml:"width"`
-	Height int `toml:"height"`
+	X      int `toml:"x" json:"x"`
+	Y      int `toml:"y" json:"y"`
+	Width  int `toml:"width" json:"width"`
+	Height int `toml:"height" json:"height"`
 }
 
 // LLMConfig selects the active LLM backend.
 type LLMConfig struct {
-	Backend string `toml:"backend"` // "vertex_ai" or "local"
+	Backend string `toml:"backend" json:"backend"`
 }
 
 // VertexAIConfig holds Vertex AI (Gemini) settings.
 type VertexAIConfig struct {
-	Project string `toml:"project"`
-	Region  string `toml:"region"`
-	Model   string `toml:"model"`
+	Project string `toml:"project" json:"project"`
+	Region  string `toml:"region" json:"region"`
+	Model   string `toml:"model" json:"model"`
 }
 
 // LocalLLMConfig holds OpenAI-compatible local LLM settings.
 type LocalLLMConfig struct {
-	Endpoint string `toml:"endpoint"`
-	Model    string `toml:"model"`
-	APIKey   string `toml:"api_key"`
+	Endpoint string `toml:"endpoint" json:"endpoint"`
+	Model    string `toml:"model" json:"model"`
+	APIKey   string `toml:"api_key" json:"api_key"`
 }
 
 // AnalysisConfig holds analysis engine settings.
 type AnalysisConfig struct {
-	ContextLimit       int     `toml:"context_limit"`
-	OverlapRatio       float64 `toml:"overlap_ratio"`
-	MaxFindings        int     `toml:"max_findings"`
-	MaxRecordsPerWindow int    `toml:"max_records_per_window"`
+	ContextLimit        int     `toml:"context_limit" json:"context_limit"`
+	OverlapRatio        float64 `toml:"overlap_ratio" json:"overlap_ratio"`
+	MaxFindings         int     `toml:"max_findings" json:"max_findings"`
+	MaxRecordsPerWindow int     `toml:"max_records_per_window" json:"max_records_per_window"`
 }
 
 // ContainerConfig holds container runtime settings.
 type ContainerConfig struct {
-	Runtime string `toml:"runtime"` // "podman" or "docker"
-	Image   string `toml:"image"`
+	Runtime string `toml:"runtime" json:"runtime"`
+	Image   string `toml:"image" json:"image"`
 }
 
 // TuningConfig holds token estimation tuning parameters.
 type TuningConfig struct {
-	CJKTokenRatio  float64 `toml:"cjk_token_ratio"`
-	ASCIITokenRatio float64 `toml:"ascii_token_ratio"`
-	CharsPerToken  int     `toml:"chars_per_token"`
+	CJKTokenRatio   float64 `toml:"cjk_token_ratio" json:"cjk_token_ratio"`
+	ASCIITokenRatio float64 `toml:"ascii_token_ratio" json:"ascii_token_ratio"`
+	CharsPerToken   int     `toml:"chars_per_token" json:"chars_per_token"`
 }
 
 // DefaultConfig returns a Config with sensible defaults.

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -128,6 +129,79 @@ func TestValidation(t *testing.T) {
 	if cfg.Tuning.CharsPerToken != 4 {
 		t.Errorf("chars_per_token = %d, want reset to %d", cfg.Tuning.CharsPerToken, 4)
 	}
+}
+
+func TestJSONSerialization(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.LLM.Backend = "local"
+	cfg.LocalLLM.Endpoint = "http://localhost:1234/v1"
+	cfg.LocalLLM.Model = "gemma-4-12b"
+	cfg.LocalLLM.APIKey = "test-key"
+	cfg.VertexAI.Project = "my-project"
+	cfg.Analysis.ContextLimit = 65536
+	cfg.Window.Width = 1400
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify snake_case keys (matching frontend expectations)
+	jsonStr := string(data)
+	checks := []struct {
+		key  string
+		want string
+	}{
+		{`"llm"`, "top-level llm key"},
+		{`"backend":"local"`, "llm.backend"},
+		{`"local_llm"`, "top-level local_llm key"},
+		{`"endpoint":"http://localhost:1234/v1"`, "local_llm.endpoint"},
+		{`"api_key":"test-key"`, "local_llm.api_key"},
+		{`"vertex_ai"`, "top-level vertex_ai key"},
+		{`"project":"my-project"`, "vertex_ai.project"},
+		{`"context_limit":65536`, "analysis.context_limit"},
+		{`"max_records_per_window"`, "analysis.max_records_per_window"},
+		{`"overlap_ratio"`, "analysis.overlap_ratio"},
+		{`"window"`, "top-level window key"},
+		{`"width":1400`, "window.width"},
+	}
+	for _, c := range checks {
+		if !contains(jsonStr, c.key) {
+			t.Errorf("JSON missing %s: expected key %q in %s", c.want, c.key, truncJSON(jsonStr))
+		}
+	}
+
+	// Round-trip: unmarshal back
+	var loaded Config
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		t.Fatal(err)
+	}
+	if loaded.LocalLLM.Endpoint != "http://localhost:1234/v1" {
+		t.Errorf("endpoint = %q after JSON round-trip", loaded.LocalLLM.Endpoint)
+	}
+	if loaded.Analysis.ContextLimit != 65536 {
+		t.Errorf("context_limit = %d after JSON round-trip", loaded.Analysis.ContextLimit)
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) > 0 && len(substr) > 0 && (s == substr || len(s) > len(substr) && searchStr(s, substr))
+}
+
+func searchStr(s, sub string) bool {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}
+
+func truncJSON(s string) string {
+	if len(s) > 200 {
+		return s[:200] + "..."
+	}
+	return s
 }
 
 func TestSaveAndLoad(t *testing.T) {
