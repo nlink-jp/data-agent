@@ -1,4 +1,4 @@
-import { GetTables, ListSessions, CreateSession, ImportData, ListReports, DeleteSession, RenameSession, DeleteReport, RenameReport } from "../../wailsjs/go/main/App";
+import { GetTables, ListSessions, CreateSession, ImportData, ListReports, DeleteSession, RenameSession, RenameReport } from "../../wailsjs/go/main/App";
 import { useState, useEffect } from "react";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { ImportDialog, InputDialog, ConfirmDialog } from "./Dialog";
@@ -135,7 +135,6 @@ export default function SidePanel({ caseId, activeSessionId, onSelectSession, on
                                                 </div>
                                                 <span className="item-actions" onClick={e => e.stopPropagation()}>
                                                     <button className="icon-btn" title="Rename" onClick={() => setDialog({ type: "rename_report", id: r.id, current: r.title })}>✎</button>
-                                                    <button className="icon-btn" title="Delete" onClick={() => setDialog({ type: "delete_report", id: r.id, label: r.title })}>×</button>
                                                 </span>
                                             </div>
                                             <div style={{ fontSize: 9, color: "var(--text-secondary)" }}>
@@ -196,18 +195,6 @@ export default function SidePanel({ caseId, activeSessionId, onSelectSession, on
                 />
             )}
 
-            {dialog?.type === "delete_report" && (
-                <ConfirmDialog
-                    title="Delete Report"
-                    message={`Delete "${dialog.label}"?`}
-                    onConfirm={async () => {
-                        await DeleteReport(caseId, dialog.id);
-                        setDialog(null);
-                        loadData();
-                    }}
-                    onCancel={() => setDialog(null)}
-                />
-            )}
         </div>
     );
 }
