@@ -34,14 +34,35 @@ func NewLocalBackend(cfg config.LocalLLMConfig) *LocalBackend {
 	}
 }
 
-func (b *LocalBackend) Name() string { return "local:" + b.model }
-
-func (b *LocalBackend) EstimateTokens(text string) int {
-	return EstimateTokenCount(text)
-}
+func (b *LocalBackend) Name() string           { return "local:" + b.model }
+func (b *LocalBackend) EstimateTokens(text string) int { return EstimateTokenCount(text) }
 
 // Chat sends a non-streaming request to the LLM.
+// Uses auto-fallback: if response_format is rejected by the API, retries without it.
 func (b *LocalBackend) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
+	resp, err := b.doChat(ctx, req, false)
+	if err != nil && req.ResponseJSON && isFormatUnsupportedError(err) {
+		// Fallback: retry without response_format
+		reqCopy := *req
+		reqCopy.ResponseJSON = false
+		return b.doChat(ctx, &reqCopy, false)
+	}
+	return resp, err
+}
+
+// ChatStream sends a streaming request to the LLM.
+// Uses auto-fallback for response_format errors.
+func (b *LocalBackend) ChatStream(ctx context.Context, req *ChatRequest, cb StreamCallback) error {
+	err := b.doChatStream(ctx, req, cb)
+	if err != nil && req.ResponseJSON && isFormatUnsupportedError(err) {
+		reqCopy := *req
+		reqCopy.ResponseJSON = false
+		return b.doChatStream(ctx, &reqCopy, cb)
+	}
+	return err
+}
+
+func (b *LocalBackend) doChat(ctx context.Context, req *ChatRequest, stream bool) (*ChatResponse, error) {
 	body := b.buildRequestBody(req, false)
 	data, err := json.Marshal(body)
 	if err != nil {
@@ -62,8 +83,8 @@ func (b *LocalBackend) Chat(ctx context.Context, req *ChatRequest) (*ChatRespons
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("LLM error %d: %s", resp.StatusCode, string(body))
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, &apiError{StatusCode: resp.StatusCode, Body: string(respBody)}
 	}
 
 	var chatResp openAIChatResponse
@@ -85,8 +106,7 @@ func (b *LocalBackend) Chat(ctx context.Context, req *ChatRequest) (*ChatRespons
 	}, nil
 }
 
-// ChatStream sends a streaming request to the LLM.
-func (b *LocalBackend) ChatStream(ctx context.Context, req *ChatRequest, cb StreamCallback) error {
+func (b *LocalBackend) doChatStream(ctx context.Context, req *ChatRequest, cb StreamCallback) error {
 	body := b.buildRequestBody(req, true)
 	data, err := json.Marshal(body)
 	if err != nil {
@@ -107,8 +127,8 @@ func (b *LocalBackend) ChatStream(ctx context.Context, req *ChatRequest, cb Stre
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("LLM error %d: %s", resp.StatusCode, string(body))
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return &apiError{StatusCode: resp.StatusCode, Body: string(respBody)}
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -170,6 +190,36 @@ func (b *LocalBackend) buildRequestBody(req *ChatRequest, stream bool) openAICha
 		r.ResponseFormat = &openAIResponseFormat{Type: "json_object"}
 	}
 	return r
+}
+
+// apiError represents an HTTP error from the LLM API.
+type apiError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *apiError) Error() string {
+	return fmt.Sprintf("LLM error %d: %s", e.StatusCode, e.Body)
+}
+
+// isFormatUnsupportedError checks if an error indicates response_format is not supported.
+// Follows llm-cli's detection pattern: HTTP 400/422 with specific keywords.
+func isFormatUnsupportedError(err error) bool {
+	ae, ok := err.(*apiError)
+	if !ok {
+		return false
+	}
+	if ae.StatusCode != 400 && ae.StatusCode != 422 {
+		return false
+	}
+	body := strings.ToLower(ae.Body)
+	keywords := []string{"response_format", "not supported", "unsupported", "unknown field"}
+	for _, kw := range keywords {
+		if strings.Contains(body, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 // OpenAI-compatible request/response types

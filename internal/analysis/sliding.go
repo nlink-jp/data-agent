@@ -120,18 +120,18 @@ Output ONLY valid JSON:
 		resp, err := backend.Chat(ctx, &llm.ChatRequest{
 			SystemPrompt: systemPrompt,
 			Messages:     []llm.Message{{Role: "user", Content: userPrompt.String()}},
-			ResponseJSON: true,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("window %d: %w", windowIdx, err)
 		}
 
-		// Parse response using nlk/jsonfix for robust extraction
+		// Parse response: strip artifacts, then extract JSON via nlk/jsonfix
+		cleaned := llm.StripArtifacts(resp.Content)
 		var windowResp struct {
 			Summary     string    `json:"summary"`
 			NewFindings []Finding `json:"new_findings"`
 		}
-		extracted, extractErr := jsonfix.Extract(resp.Content)
+		extracted, extractErr := jsonfix.Extract(cleaned)
 		if extractErr == nil {
 			json.Unmarshal([]byte(extracted), &windowResp)
 		}

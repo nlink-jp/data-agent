@@ -153,6 +153,67 @@ func TestLocalBackend_ResponseJSON(t *testing.T) {
 	}
 }
 
+func TestLocalBackend_ResponseFormatFallback(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		var req openAIChatRequest
+		json.NewDecoder(r.Body).Decode(&req)
+
+		if req.ResponseFormat != nil {
+			// Reject response_format like some local LLM servers do
+			w.WriteHeader(400)
+			w.Write([]byte(`{"error":"'response_format.type' must be 'json_schema' or 'text'"}`))
+			return
+		}
+
+		// Second call without response_format succeeds
+		json.NewEncoder(w).Encode(openAIChatResponse{
+			Choices: []openAIChoice{{Message: openAIMessage{Content: `{"result":"ok"}`}}},
+		})
+	}))
+	defer server.Close()
+
+	backend := NewLocalBackend(config.LocalLLMConfig{Endpoint: server.URL, Model: "test"})
+	resp, err := backend.Chat(context.Background(), &ChatRequest{
+		Messages:     []Message{{Role: "user", Content: "Return JSON"}},
+		ResponseJSON: true,
+	})
+	if err != nil {
+		t.Fatalf("expected auto-fallback to succeed, got: %v", err)
+	}
+	if resp.Content != `{"result":"ok"}` {
+		t.Errorf("content = %q, want JSON result", resp.Content)
+	}
+	if callCount != 2 {
+		t.Errorf("calls = %d, want 2 (initial + fallback)", callCount)
+	}
+}
+
+func TestLocalBackend_IsFormatUnsupportedError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		{"non-api error", fmt.Errorf("network error"), false},
+		{"500 error", &apiError{StatusCode: 500, Body: "internal error"}, false},
+		{"400 with response_format", &apiError{StatusCode: 400, Body: `{"error":"response_format not supported"}`}, true},
+		{"422 with unsupported", &apiError{StatusCode: 422, Body: "unsupported parameter"}, true},
+		{"400 unrelated", &apiError{StatusCode: 400, Body: "invalid model name"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isFormatUnsupportedError(tt.err)
+			if got != tt.want {
+				t.Errorf("isFormatUnsupportedError = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLocalBackend_Name(t *testing.T) {
 	backend := NewLocalBackend(config.LocalLLMConfig{Model: "gemma-4-12b"})
 	if backend.Name() != "local:gemma-4-12b" {
