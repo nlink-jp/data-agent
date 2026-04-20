@@ -163,6 +163,7 @@ export namespace config {
 	    container: ContainerConfig;
 	    tuning: TuningConfig;
 	    window: WindowConfig;
+	    theme: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -177,6 +178,7 @@ export namespace config {
 	        this.container = this.convertValues(source["container"], ContainerConfig);
 	        this.tuning = this.convertValues(source["tuning"], TuningConfig);
 	        this.window = this.convertValues(source["window"], WindowConfig);
+	        this.theme = source["theme"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

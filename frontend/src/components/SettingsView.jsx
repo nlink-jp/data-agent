@@ -25,10 +25,15 @@ export default function SettingsView() {
     if (!cfg) return <div style={{ padding: 24 }}>Loading...</div>;
 
     const update = (section, key, value) => {
-        setCfg(prev => ({
-            ...prev,
-            [section]: { ...prev[section], [key]: value },
-        }));
+        if (key === null) {
+            // Top-level field (e.g., theme)
+            setCfg(prev => ({ ...prev, [section]: value }));
+        } else {
+            setCfg(prev => ({
+                ...prev,
+                [section]: { ...prev[section], [key]: value },
+            }));
+        }
     };
 
     const updateNum = (section, key, value) => {
@@ -39,6 +44,24 @@ export default function SettingsView() {
     return (
         <div style={{ flex: 1, overflow: "auto", padding: 24, maxWidth: 600 }}>
             <h2 style={{ fontSize: 18, marginBottom: 20 }}>Settings</h2>
+
+            <Section title="Appearance">
+                <Field label="Theme">
+                    <select
+                        value={cfg.theme || "dark"}
+                        onChange={e => {
+                            update("theme", null, e.target.value);
+                            document.documentElement.setAttribute("data-theme", e.target.value);
+                        }}
+                        style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)", padding: "6px 10px", borderRadius: 6, width: "100%" }}
+                    >
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
+                        <option value="warm">Warm</option>
+                        <option value="midnight">Midnight</option>
+                    </select>
+                </Field>
+            </Section>
 
             <Section title="LLM Backend">
                 <Field label="Backend">

@@ -18,6 +18,7 @@ type Config struct {
 	Container ContainerConfig `toml:"container" json:"container"`
 	Tuning    TuningConfig    `toml:"tuning" json:"tuning"`
 	Window    WindowConfig    `toml:"window" json:"window"`
+	Theme     string          `toml:"theme" json:"theme"`
 }
 
 // WindowConfig holds window position and size.
@@ -101,6 +102,7 @@ func DefaultConfig() *Config {
 			Width:  1280,
 			Height: 800,
 		},
+		Theme: "dark",
 	}
 }
 

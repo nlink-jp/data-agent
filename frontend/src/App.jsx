@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import "./App.css";
-import { ListCases, OpenCase, ListReports } from "../wailsjs/go/main/App";
+import { ListCases, OpenCase, ListReports, GetConfig } from "../wailsjs/go/main/App";
 import CaseListView from "./components/CaseListView";
 import SidePanel from "./components/SidePanel";
 import ChatPanel from "./components/ChatPanel";
@@ -27,6 +27,12 @@ function App() {
 
     useEffect(() => {
         refreshCases();
+        // Apply saved theme on startup
+        GetConfig().then(cfg => {
+            if (cfg?.theme) {
+                document.documentElement.setAttribute("data-theme", cfg.theme);
+            }
+        }).catch(() => {});
     }, [refreshCases]);
 
     const handleOpenCase = async (id) => {

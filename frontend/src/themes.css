@@ -1,0 +1,60 @@
+/* Theme: Dark (default) */
+:root,
+[data-theme="dark"] {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --border: #30363d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --accent: #58a6ff;
+  --accent-hover: #79c0ff;
+  --success: #3fb950;
+  --warning: #d29922;
+  --error: #f85149;
+}
+
+/* Theme: Light */
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-tertiary: #eaeef2;
+  --border: #d0d7de;
+  --text-primary: #1f2328;
+  --text-secondary: #656d76;
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --success: #1a7f37;
+  --warning: #9a6700;
+  --error: #cf222e;
+}
+
+/* Theme: Warm */
+[data-theme="warm"] {
+  --bg-primary: #1c1410;
+  --bg-secondary: #241c16;
+  --bg-tertiary: #2e2520;
+  --border: #3d332b;
+  --text-primary: #e8ddd4;
+  --text-secondary: #a09080;
+  --accent: #d4956a;
+  --accent-hover: #e0ab85;
+  --success: #8bb060;
+  --warning: #d4a046;
+  --error: #d06050;
+}
+
+/* Theme: Midnight */
+[data-theme="midnight"] {
+  --bg-primary: #0a0c14;
+  --bg-secondary: #10131e;
+  --bg-tertiary: #181c2a;
+  --border: #252a3a;
+  --text-primary: #d0d8e8;
+  --text-secondary: #6878a0;
+  --accent: #7090e0;
+  --accent-hover: #90a8f0;
+  --success: #50b080;
+  --warning: #d0a840;
+  --error: #e06060;
+}
