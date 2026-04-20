@@ -76,6 +76,8 @@ func tryParsePlan(jsonStr string) *Plan {
 			switch rs.Type {
 			case "sql":
 				stepType = StepTypeSQL
+			case "sliding_window":
+				stepType = StepTypeSlidingWindow
 			case "interpret":
 				stepType = StepTypeInterpret
 			case "aggregate":

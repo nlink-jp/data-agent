@@ -74,10 +74,11 @@ type Step struct {
 type StepType string
 
 const (
-	StepTypeSQL       StepType = "sql"
-	StepTypeInterpret StepType = "interpret"
-	StepTypeAggregate StepType = "aggregate"
-	StepTypeContainer StepType = "container"
+	StepTypeSQL           StepType = "sql"
+	StepTypeInterpret     StepType = "interpret"
+	StepTypeAggregate     StepType = "aggregate"
+	StepTypeSlidingWindow StepType = "sliding_window"
+	StepTypeContainer     StepType = "container"
 )
 
 // StepStatus represents step lifecycle state.

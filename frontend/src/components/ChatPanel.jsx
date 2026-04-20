@@ -118,6 +118,13 @@ export default function ChatPanel({ caseId, sessionId, onViewReport }) {
         const text = input.trim();
         setInput("");
 
+        // Auto-reopen done sessions
+        if (phase === "done") {
+            try {
+                await ReopenSession(caseId, sessionId);
+            } catch {}
+        }
+
         if (text.startsWith("/sql ")) {
             const sql = text.slice(5).trim();
             setMessages(prev => [...prev, { role: "user", content: text }]);
@@ -165,6 +172,16 @@ export default function ChatPanel({ caseId, sessionId, onViewReport }) {
     };
 
 
+    const hasApproveInMessages = () => {
+        // Check if any message already shows an InlinePlan with Approve button
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === "assistant" && extractPlanFromContent(messages[i].content)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     if (!sessionId) {
         return (
             <div className="chat-panel">
@@ -181,16 +198,6 @@ export default function ChatPanel({ caseId, sessionId, onViewReport }) {
                 <span className={`badge ${phase}`}>{phase}</span>
                 <span style={{ color: "var(--text-secondary)" }}>Session: {sessionId.slice(0, 8)}</span>
                 <div style={{ flex: 1 }} />
-                {phase === "done" && (
-                    <button onClick={async () => {
-                        try {
-                            await ReopenSession(caseId, sessionId);
-                            loadSession();
-                        } catch (err) {
-                            setMessages(prev => [...prev, { role: "system", content: `Error: ${err}` }]);
-                        }
-                    }} style={{ fontSize: 11 }}>Reopen</button>
-                )}
             </div>
 
             <div className="message-list" ref={listRef}>
@@ -254,6 +261,22 @@ export default function ChatPanel({ caseId, sessionId, onViewReport }) {
                 {streaming && (
                     <div className="message assistant">
                         <Markdown remarkPlugins={[remarkGfm]}>{streaming}</Markdown>
+                    </div>
+                )}
+                {phase === "planning" && planDetected && !sending && !hasApproveInMessages() && (
+                    <div style={{
+                        background: "var(--bg-secondary)",
+                        border: "1px solid var(--accent)",
+                        borderRadius: 8,
+                        padding: 14,
+                        margin: "8px 0",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        maxWidth: "85%",
+                    }}>
+                        <span style={{ fontSize: 13 }}>Existing plan available. Approve to execute or continue editing.</span>
+                        <button className="primary" onClick={handleApprovePlan} style={{ fontSize: 12 }}>Approve Plan</button>
                     </div>
                 )}
             </div>

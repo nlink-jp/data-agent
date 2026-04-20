@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/nlink-jp/data-agent/internal/analysis"
 	"github.com/nlink-jp/data-agent/internal/casemgr"
 	"github.com/nlink-jp/data-agent/internal/config"
 	"github.com/nlink-jp/data-agent/internal/dbengine"
@@ -197,12 +198,24 @@ func (a *App) ReopenSession(caseID, sessionID string) error {
 	if err := sess.Reopen(); err != nil {
 		return err
 	}
+
+	// Add system message noting the reopen
+	sess.AddMessage("system", "Session reopened for additional analysis. You can modify the existing plan or approve it to re-execute.")
 	sessionsDir := filepath.Join(a.cases.CaseDir(caseID), "sessions")
 	if err := sess.Save(sessionsDir); err != nil {
 		return err
 	}
 	a.log.Info("session reopened", logger.F("session", sessionID))
 	wailsRuntime.EventsEmit(a.ctx, "session:phase", map[string]any{"session": sessionID, "phase": "planning"})
+
+	// If plan exists, notify frontend so Approve button appears
+	if sess.Plan != nil {
+		wailsRuntime.EventsEmit(a.ctx, "session:plan_detected", map[string]any{
+			"session":      sessionID,
+			"objective":    sess.Plan.Objective,
+			"perspectives": len(sess.Plan.Perspectives),
+		})
+	}
 	return nil
 }
 
@@ -276,10 +289,13 @@ func (a *App) SendMessage(caseID, sessionID, content string) error {
 	var systemPrompt string
 	systemPrompt = buildPlanningPrompt(schemaCtx)
 
-	// Build messages for LLM
+	// Build messages for LLM (exclude non-chat roles)
 	var messages []llm.Message
 	for _, msg := range sess.Chat {
-		messages = append(messages, llm.Message{Role: msg.Role, Content: msg.Content})
+		switch msg.Role {
+		case "user", "assistant", "system":
+			messages = append(messages, llm.Message{Role: msg.Role, Content: msg.Content})
+		}
 	}
 
 	// Always stream for responsiveness. Plan JSON extraction happens after completion.
@@ -300,6 +316,7 @@ func (a *App) SendMessage(caseID, sessionID, content string) error {
 		return fmt.Errorf("LLM error: %w", err)
 	}
 
+	fullResponse = stripLLMArtifacts(fullResponse)
 	sess.AddMessage("assistant", fullResponse)
 
 	// In planning phase, try to extract a structured plan from the response
@@ -415,6 +432,8 @@ func (a *App) executePlan(caseID, sessionID string) {
 				stepErr = a.executeSQLStep(engine, sess, step)
 			case session.StepTypeInterpret, session.StepTypeAggregate:
 				stepErr = a.executeLLMStep(engine, sess, step)
+			case session.StepTypeSlidingWindow:
+				stepErr = a.executeSlidingWindowStep(engine, sess, step, sessionID)
 			default:
 				step.Status = session.StepSkipped
 				a.log.Warn("unsupported step type", logger.F("type", string(step.Type)))
@@ -569,6 +588,120 @@ Respond concisely in the user's language.`, schemaCtx, sess.Plan.Objective)
 	})
 
 	a.log.Info("LLM step done", logger.F("step", step.ID), logger.F("tokens", fmt.Sprintf("%d", resp.Usage.TotalTokens)))
+	return nil
+}
+
+func (a *App) executeSlidingWindowStep(engine *dbengine.Engine, sess *session.Session, step *session.Step, sessionID string) error {
+	if a.backend == nil {
+		return fmt.Errorf("LLM backend not initialized")
+	}
+	if step.SQL == "" {
+		return fmt.Errorf("no SQL for sliding_window step %s", step.ID)
+	}
+
+	// Execute SQL to get raw records
+	result, err := engine.Execute(step.SQL)
+	if err != nil {
+		sess.RecordExec(session.ExecEntry{
+			StepID: step.ID, Type: step.Type, SQL: step.SQL, Error: err.Error(),
+		})
+		return err
+	}
+
+	a.log.Info("sliding window: fetched data",
+		logger.F("step", step.ID),
+		logger.F("rows", fmt.Sprintf("%d", result.RowCount)),
+	)
+	a.emitStepEvent(sessionID, map[string]any{
+		"event": "info", "id": step.ID,
+		"description": fmt.Sprintf("Fetched %d records, starting sliding window analysis...", result.RowCount),
+	})
+
+	// Build rich perspective from plan context
+	var perspective strings.Builder
+	fmt.Fprintf(&perspective, "## Investigation Objective\n%s\n\n", sess.Plan.Objective)
+	// Find parent perspective for this step
+	for _, p := range sess.Plan.Perspectives {
+		for _, s := range p.Steps {
+			if s.ID == step.ID {
+				fmt.Fprintf(&perspective, "## Analysis Perspective\n%s\n\n", p.Description)
+				break
+			}
+		}
+	}
+	fmt.Fprintf(&perspective, "## Step Goal\n%s\n", step.Description)
+	// Include dependency results as additional context
+	for _, depID := range step.DependsOn {
+		dep, _ := sess.FindStep(depID)
+		if dep != nil && dep.Result != nil {
+			fmt.Fprintf(&perspective, "\n## Prior Finding (%s)\n%s\n", dep.ID, dep.Result.Summary)
+		}
+	}
+
+	cfg := analysis.SlidingWindowConfig{
+		MaxRecordsPerWindow: a.cfg.Analysis.MaxRecordsPerWindow,
+		OverlapRatio:        a.cfg.Analysis.OverlapRatio,
+		MaxFindings:         a.cfg.Analysis.MaxFindings,
+		ContextLimit:        a.cfg.Analysis.ContextLimit,
+	}
+
+	windowResult, err := analysis.RunSlidingWindow(
+		a.ctx,
+		a.backend,
+		result.Rows,
+		perspective.String(),
+		cfg,
+		func(windowIdx, totalWindows int) {
+			a.emitStepEvent(sessionID, map[string]any{
+				"event": "info", "id": step.ID,
+				"description": fmt.Sprintf("Processing window %d/%d...", windowIdx+1, totalWindows),
+			})
+			a.log.Info("sliding window progress",
+				logger.F("step", step.ID),
+				logger.F("window", fmt.Sprintf("%d/%d", windowIdx+1, totalWindows)),
+			)
+		},
+	)
+	if err != nil {
+		sess.RecordExec(session.ExecEntry{
+			StepID: step.ID, Type: step.Type, SQL: step.SQL, Error: err.Error(),
+		})
+		return err
+	}
+
+	// Build summary
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Sliding window analysis: %d records processed in %d windows\n\n", windowResult.TotalRecords, windowResult.Windows)
+	fmt.Fprintf(&sb, "**Summary:** %s\n\n", windowResult.Summary)
+	if len(windowResult.Findings) > 0 {
+		sb.WriteString("**Findings:**\n")
+		for _, f := range windowResult.Findings {
+			fmt.Fprintf(&sb, "- [%s] %s (severity: %s)\n", f.ID, f.Description, f.Severity)
+		}
+	}
+	summary := sb.String()
+
+	step.Result = &session.StepResult{Summary: summary}
+	sess.RecordExec(session.ExecEntry{
+		StepID: step.ID, Type: step.Type, SQL: step.SQL,
+		Result: &session.StepResult{Summary: summary},
+	})
+
+	// Add findings to session
+	for _, f := range windowResult.Findings {
+		sess.AddFinding(session.Finding{
+			ID:          f.ID,
+			Description: f.Description,
+			Severity:    f.Severity,
+			StepID:      step.ID,
+		})
+	}
+
+	a.log.Info("sliding window done",
+		logger.F("step", step.ID),
+		logger.F("windows", fmt.Sprintf("%d", windowResult.Windows)),
+		logger.F("findings", fmt.Sprintf("%d", len(windowResult.Findings))),
+	)
 	return nil
 }
 
@@ -786,6 +919,44 @@ func (a *App) emitStepEvent(sessionID string, data map[string]any) {
 	wailsRuntime.EventsEmit(a.ctx, "chat:step_progress", data)
 }
 
+// stripLLMArtifacts removes raw model artifacts (Gemma tool call tags, thinking tags, etc.)
+func stripLLMArtifacts(s string) string {
+	// Gemma-style tool call tags
+	s = strings.ReplaceAll(s, "<|tool_call|>", "")
+	s = strings.ReplaceAll(s, "<tool_call|>", "")
+	// Remove <|tool_call>...<tool_call|> blocks
+	for {
+		start := strings.Index(s, "<|tool_call>")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(s[start:], "<tool_call|>")
+		if end == -1 {
+			end = strings.Index(s[start:], "<|tool_call|>")
+		}
+		if end == -1 {
+			s = s[:start]
+			break
+		}
+		endPos := start + end + len("<tool_call|>")
+		s = s[:start] + s[endPos:]
+	}
+	// Thinking tags
+	for {
+		start := strings.Index(s, "<think>")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(s[start:], "</think>")
+		if end == -1 {
+			s = s[:start]
+			break
+		}
+		s = s[:start] + s[start+end+len("</think>"):]
+	}
+	return strings.TrimSpace(s)
+}
+
 func truncate(s string, max int) string {
 	r := []rune(s)
 	if len(r) <= max {
@@ -802,9 +973,15 @@ Collaborate with the user to build a structured investigation plan.
 ` + schemaCtx + `
 
 ## Step Types
-- sql: Execute a SQL query (you MUST provide the actual SQL in the "sql" field)
+- sql: Execute a SQL query for aggregation/counting (use when result is small). MUST include "sql" field.
+- sliding_window: For analyzing raw records from large tables (100+ rows). Executes SQL to fetch records, then analyzes them in overlapping windows. MUST include "sql" field. Use this when you need to examine individual records, not just aggregates.
 - interpret: LLM interprets the result of previous steps
 - aggregate: LLM synthesizes results from multiple steps
+
+## Step Type Selection Rules
+- Use "sql" when the analysis target is known in advance (e.g., count by category, average response time, specific filtering). SQL produces structured aggregations.
+- Use "sliding_window" when comprehensive/exploratory analysis of raw records is needed — discovering unknown patterns, anomalies, or trends that cannot be captured by predefined SQL queries. The system processes records in overlapping windows automatically.
+- Choose based on the analytical goal, not data size. Even small datasets may benefit from sliding_window if the goal is open-ended exploration.
 
 ## Rules
 - During discussion, respond in natural language in the user's language
@@ -823,7 +1000,8 @@ When outputting the plan, use EXACTLY this structure in a ` + "```json" + ` code
       "description": "Analysis angle description",
       "steps": [
         {"id": "P1-S1", "type": "sql", "description": "What this query does", "sql": "SELECT ...", "depends_on": []},
-        {"id": "P1-S2", "type": "interpret", "description": "Interpret the results", "depends_on": ["P1-S1"]}
+        {"id": "P1-S2", "type": "sliding_window", "description": "Deep analysis of large dataset", "sql": "SELECT * FROM ...", "depends_on": []},
+        {"id": "P1-S3", "type": "interpret", "description": "Interpret the results", "depends_on": ["P1-S1"]}
       ]
     }
   ]
