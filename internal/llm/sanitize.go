@@ -3,29 +3,26 @@ package llm
 import (
 	"regexp"
 	"strings"
+
+	"github.com/nlink-jp/nlk/strip"
 )
 
 // toolCallRe matches Gemma-style tool call blocks.
 var toolCallRe = regexp.MustCompile(`<\|?tool_call\|?>[\s\S]*?<\|?tool_call\|?>`)
 
-// thinkRe matches thinking tag blocks.
-var thinkRe = regexp.MustCompile(`<think>[\s\S]*?</think>`)
-
 // StripArtifacts removes raw model artifacts from LLM responses.
+// Uses nlk/strip.ThinkTags for thinking tags (comprehensive coverage)
+// and custom regex for tool call tags.
 func StripArtifacts(s string) string {
-	// Remove matched pairs
+	// nlk/strip handles: <think>, <thinking>, <reasoning>, <reflection>,
+	// <|channel>thought (Gemma 4), case-insensitive, unclosed tags
+	s = strip.ThinkTags(s)
+
+	// Tool call tags (Gemma-style) — not covered by nlk
 	s = toolCallRe.ReplaceAllString(s, "")
-	s = thinkRe.ReplaceAllString(s, "")
-
-	// Remove unclosed tags (truncate from opening tag)
-	if idx := strings.Index(s, "<think>"); idx >= 0 {
-		s = s[:idx]
-	}
 	if idx := strings.Index(s, "<|tool_call>"); idx >= 0 {
-		s = s[:idx]
+		s = s[:idx] // unclosed tool call: truncate
 	}
-
-	// Clean up any remaining standalone tags
 	s = strings.ReplaceAll(s, "<|tool_call|>", "")
 	s = strings.ReplaceAll(s, "<tool_call|>", "")
 	s = strings.ReplaceAll(s, "<|tool_call>", "")

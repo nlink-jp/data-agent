@@ -10,10 +10,11 @@ func TestStripArtifacts(t *testing.T) {
 	}{
 		{"no artifacts", "Hello world", "Hello world"},
 		{"gemma tool call", "text<|tool_call>call:thought:{}<tool_call|>more", "textmore"},
-		{"gemma tool call alt closing", "text<|tool_call>call:thought:{}<|tool_call|>more", "textmore"},
+		{"gemma tool call alt", "text<|tool_call>call:thought:{}<|tool_call|>more", "textmore"},
 		{"trailing tool call", "text<|tool_call|>", "text"},
-		{"think tags", "before<think>internal thought</think>after", "beforeafter"},
-		{"unclosed think", "before<think>internal", "before"},
+		{"think tags (via nlk)", "before<think>internal thought</think>after", "beforeafter"},
+		{"thinking tags (via nlk)", "before<thinking>deep thought</thinking>after", "beforeafter"},
+		{"unclosed think (via nlk)", "before<think>internal", "before"},
 		{"mixed", "<think>thought</think>Hello<|tool_call>x<tool_call|> world", "Hello world"},
 		{"empty", "", ""},
 	}

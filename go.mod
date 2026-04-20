@@ -6,6 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/marcboeker/go-duckdb v1.8.5
+	github.com/nlink-jp/nlk v0.5.1
 	github.com/wailsapp/wails/v2 v2.12.0
 	google.golang.org/genai v1.54.0
 )
