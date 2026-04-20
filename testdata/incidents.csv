@@ -1,0 +1,21 @@
+timestamp,category,severity,source,description,response_hours
+2024-01-05 09:15:00,malware,high,endpoint,Emotet variant detected on workstation WS-042,2.5
+2024-01-12 14:30:00,phishing,medium,email,Credential harvesting campaign targeting finance dept,1.0
+2024-01-18 03:45:00,unauthorized_access,critical,firewall,Brute force attack from 203.0.113.50 on VPN gateway,0.5
+2024-01-25 11:00:00,data_leak,high,dlp,Sensitive PII detected in outbound email attachment,3.0
+2024-02-02 16:20:00,malware,critical,server,Ransomware encryption detected on file server FS-01,0.25
+2024-02-08 08:00:00,phishing,low,email,Generic spam with malicious link - auto quarantined,0.0
+2024-02-15 22:10:00,malware,high,endpoint,Cobalt Strike beacon detected on developer laptop,1.5
+2024-02-22 13:45:00,unauthorized_access,medium,cloud,Anomalous API calls from service account in GCP,4.0
+2024-03-01 07:30:00,phishing,high,email,Spear phishing targeting CEO with deepfake voice memo,0.75
+2024-03-10 19:00:00,malware,medium,endpoint,Adware PUP detected on shared kiosk machine,8.0
+2024-03-18 10:15:00,data_leak,critical,cloud,S3 bucket misconfiguration exposed customer records,0.5
+2024-03-25 15:30:00,unauthorized_access,high,vpn,Compromised VPN credentials used from unusual geolocation,1.0
+2024-04-03 06:00:00,malware,high,server,Cryptominer deployed via vulnerable Jenkins instance,2.0
+2024-04-12 12:45:00,phishing,medium,email,Business email compromise attempt on procurement team,1.5
+2024-04-20 21:30:00,unauthorized_access,critical,cloud,Privilege escalation via IAM role chaining in AWS,0.75
+2024-04-28 08:15:00,data_leak,medium,endpoint,USB drive with unencrypted database backup detected,6.0
+2024-05-05 14:00:00,malware,high,endpoint,Agent Tesla keylogger found on HR workstation,1.0
+2024-05-14 03:20:00,unauthorized_access,high,firewall,Port scanning activity from internal compromised host,0.5
+2024-05-22 17:45:00,phishing,critical,email,Supply chain phishing via compromised vendor email,0.25
+2024-05-30 09:30:00,malware,medium,server,Webshell discovered on public-facing web server,3.0

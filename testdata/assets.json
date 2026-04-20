@@ -1,0 +1,14 @@
+[
+  {"id": "WS-042", "type": "workstation", "department": "engineering", "os": "Windows 11", "criticality": "medium"},
+  {"id": "FS-01", "type": "server", "department": "it", "os": "Windows Server 2022", "criticality": "critical"},
+  {"id": "WEB-01", "type": "server", "department": "it", "os": "Ubuntu 22.04", "criticality": "high"},
+  {"id": "DEV-015", "type": "workstation", "department": "engineering", "os": "macOS 14", "criticality": "medium"},
+  {"id": "HR-003", "type": "workstation", "department": "hr", "os": "Windows 11", "criticality": "medium"},
+  {"id": "KIOSK-02", "type": "kiosk", "department": "facilities", "os": "Windows 10", "criticality": "low"},
+  {"id": "VPN-GW", "type": "network", "department": "it", "os": "FortiOS 7.4", "criticality": "critical"},
+  {"id": "FW-01", "type": "network", "department": "it", "os": "Palo Alto PAN-OS 11", "criticality": "critical"},
+  {"id": "JENKINS-01", "type": "server", "department": "engineering", "os": "Ubuntu 20.04", "criticality": "high"},
+  {"id": "GCP-SA-01", "type": "cloud", "department": "engineering", "os": "n/a", "criticality": "high"},
+  {"id": "AWS-IAM-01", "type": "cloud", "department": "it", "os": "n/a", "criticality": "critical"},
+  {"id": "S3-CUST", "type": "cloud", "department": "data", "os": "n/a", "criticality": "critical"}
+]

@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { SendMessage, ExecuteSQL, GetSession, ApprovePlan, RequestAdditionalAnalysis, FinalizeSession } from "../../wailsjs/go/main/App";
-import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+import { EventsOn } from "../../wailsjs/runtime/runtime";
 import ResultTable from "./ResultTable";
 
 export default function ChatPanel({ caseId, sessionId }) {
-    const [messages, setMessages] = useState([]);
+    const [messages, setMessages] = useState([]); // {role, content, result?}
     const [input, setInput] = useState("");
     const [phase, setPhase] = useState("planning");
     const [streaming, setStreaming] = useState("");
     const [sending, setSending] = useState(false);
-    const [lastResult, setLastResult] = useState(null);
     const listRef = useRef(null);
 
     useEffect(() => {
@@ -47,7 +46,7 @@ export default function ChatPanel({ caseId, sessionId }) {
     const loadSession = async () => {
         try {
             const sess = await GetSession(caseId, sessionId);
-            setMessages(sess.chat || []);
+            setMessages((sess.chat || []).map(m => ({ role: m.role, content: m.content })));
             setPhase(sess.phase);
         } catch {}
     };
@@ -58,23 +57,21 @@ export default function ChatPanel({ caseId, sessionId }) {
         const text = input.trim();
         setInput("");
 
-        // Handle /sql command
         if (text.startsWith("/sql ")) {
             const sql = text.slice(5).trim();
+            setMessages(prev => [...prev, { role: "user", content: text }]);
             try {
                 const result = await ExecuteSQL(caseId, sessionId, sql);
-                setMessages(prev => [
-                    ...prev,
-                    { role: "user", content: text },
-                    { role: "system", content: `Query returned ${result.row_count} rows (${result.duration})` }
-                ]);
-                setLastResult(result);
+                setMessages(prev => [...prev, {
+                    role: "system",
+                    content: `Query returned ${result.row_count} rows`,
+                    result: result,
+                }]);
             } catch (err) {
-                setMessages(prev => [
-                    ...prev,
-                    { role: "user", content: text },
-                    { role: "system", content: `SQL Error: ${err}` }
-                ]);
+                setMessages(prev => [...prev, {
+                    role: "system",
+                    content: `SQL Error: ${err}`,
+                }]);
             }
             return;
         }
@@ -91,7 +88,7 @@ export default function ChatPanel({ caseId, sessionId }) {
     };
 
     const handleKeyDown = (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.isComposing) {
             e.preventDefault();
             handleSend();
         }
@@ -102,7 +99,7 @@ export default function ChatPanel({ caseId, sessionId }) {
             await ApprovePlan(caseId, sessionId);
             loadSession();
         } catch (err) {
-            alert(`Error: ${err}`);
+            setMessages(prev => [...prev, { role: "system", content: `Error: ${err}` }]);
         }
     };
 
@@ -111,7 +108,7 @@ export default function ChatPanel({ caseId, sessionId }) {
             await RequestAdditionalAnalysis(caseId, sessionId);
             loadSession();
         } catch (err) {
-            alert(`Error: ${err}`);
+            setMessages(prev => [...prev, { role: "system", content: `Error: ${err}` }]);
         }
     };
 
@@ -120,7 +117,7 @@ export default function ChatPanel({ caseId, sessionId }) {
             await FinalizeSession(caseId, sessionId);
             loadSession();
         } catch (err) {
-            alert(`Error: ${err}`);
+            setMessages(prev => [...prev, { role: "system", content: `Error: ${err}` }]);
         }
     };
 
@@ -153,15 +150,17 @@ export default function ChatPanel({ caseId, sessionId }) {
 
             <div className="message-list" ref={listRef}>
                 {messages.map((msg, i) => (
-                    <div key={i} className={`message ${msg.role}`}>
-                        {msg.content}
+                    <div key={i}>
+                        <div className={`message ${msg.role}`}>
+                            {msg.content}
+                        </div>
+                        {msg.result && msg.result.columns && msg.result.rows && msg.result.rows.length > 0 && (
+                            <ResultTable result={msg.result} />
+                        )}
                     </div>
                 ))}
                 {streaming && (
                     <div className="message assistant">{streaming}</div>
-                )}
-                {lastResult && lastResult.rows && lastResult.rows.length > 0 && (
-                    <ResultTable result={lastResult} />
                 )}
             </div>
 
@@ -170,7 +169,7 @@ export default function ChatPanel({ caseId, sessionId }) {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={phase === "planning" ? "Describe what you want to analyze..." : "/sql SELECT * FROM ... or ask a question"}
+                    placeholder={phase === "planning" ? "Describe what you want to analyze... (Cmd+Enter to send)" : "/sql SELECT * FROM ... (Cmd+Enter to send)"}
                     disabled={sending || phase === "done"}
                 />
                 <button className="primary" onClick={handleSend} disabled={sending || phase === "done"}>

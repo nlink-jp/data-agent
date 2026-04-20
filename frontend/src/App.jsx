@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import "./App.css";
-import { ListCases, ImportData } from "../wailsjs/go/main/App";
+import { ListCases, OpenCase } from "../wailsjs/go/main/App";
 import CaseListView from "./components/CaseListView";
 import SidePanel from "./components/SidePanel";
 import ChatPanel from "./components/ChatPanel";
 import LogPanel from "./components/LogPanel";
 
 function App() {
-    const [view, setView] = useState("cases"); // "cases" or "analysis"
+    const [view, setView] = useState("cases");
     const [cases, setCases] = useState([]);
     const [activeCaseId, setActiveCaseId] = useState(null);
     const [activeSessionId, setActiveSessionId] = useState(null);
@@ -26,7 +26,11 @@ function App() {
         refreshCases();
     }, [refreshCases]);
 
-    const handleOpenCase = (id) => {
+    const handleOpenCase = async (id) => {
+        try {
+            await OpenCase(id);
+        } catch {} // idempotent — already open is OK
+        await refreshCases();
         setActiveCaseId(id);
         setActiveSessionId(null);
         setView("analysis");
@@ -37,19 +41,6 @@ function App() {
         setActiveCaseId(null);
         setActiveSessionId(null);
         refreshCases();
-    };
-
-    const handleImport = async () => {
-        const path = prompt("File path to import (CSV, JSON, JSONL):");
-        if (!path) return;
-        const table = prompt("Table name:");
-        if (!table) return;
-        try {
-            await ImportData(activeCaseId, path, table);
-            if (refreshTablesRef.current) refreshTablesRef.current();
-        } catch (err) {
-            alert(`Import error: ${err}`);
-        }
     };
 
     const activeCase = cases.find(c => c.id === activeCaseId);
@@ -68,11 +59,7 @@ function App() {
                         </span>
                     )}
                 </div>
-                <div className="controls">
-                    {view === "analysis" && (
-                        <button onClick={handleImport}>Import Data</button>
-                    )}
-                </div>
+                <div className="controls" />
             </div>
 
             <div className="app-main">

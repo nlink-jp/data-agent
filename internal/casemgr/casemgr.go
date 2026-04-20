@@ -57,6 +57,23 @@ func NewManager(baseDir string) (*Manager, error) {
 	}, nil
 }
 
+// ResetGhostStatus resets cases that were left "open" from an unclean shutdown.
+// On startup, no cases should be in the in-memory open map, so any "open" status
+// in meta.json is stale.
+func (m *Manager) ResetGhostStatus() {
+	cases, err := m.List()
+	if err != nil {
+		return
+	}
+	for _, c := range cases {
+		if c.Status == StatusOpen {
+			c.Status = StatusClosed
+			c.UpdatedAt = time.Now()
+			m.saveMeta(&c)
+		}
+	}
+}
+
 // Create creates a new case with the given name.
 func (m *Manager) Create(name string) (*CaseInfo, error) {
 	c := &CaseInfo{

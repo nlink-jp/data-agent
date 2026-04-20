@@ -1,37 +1,57 @@
-import { ListCases, CreateCase, OpenCase, CloseCase, DeleteCase } from "../../wailsjs/go/main/App";
+import { useState } from "react";
+import { CreateCase, OpenCase, CloseCase, DeleteCase } from "../../wailsjs/go/main/App";
+import { InputDialog, ConfirmDialog } from "./Dialog";
 
 export default function CaseListView({ onOpenCase, refresh, cases }) {
-    const handleCreate = async () => {
-        const name = prompt("Case name:");
-        if (!name) return;
-        await CreateCase(name);
-        refresh();
+    const [showCreate, setShowCreate] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+
+    const handleCreate = async (name) => {
+        setShowCreate(false);
+        try {
+            await CreateCase(name);
+            refresh();
+        } catch (err) {
+            console.error("Create case failed:", err);
+        }
     };
 
     const handleOpen = async (id) => {
-        await OpenCase(id);
-        refresh();
-        onOpenCase(id);
+        try {
+            await OpenCase(id);
+            refresh();
+            onOpenCase(id);
+        } catch (err) {
+            console.error("Open case failed:", err);
+        }
     };
 
     const handleClose = async (e, id) => {
         e.stopPropagation();
-        await CloseCase(id);
-        refresh();
+        try {
+            await CloseCase(id);
+            refresh();
+        } catch (err) {
+            console.error("Close case failed:", err);
+        }
     };
 
-    const handleDelete = async (e, id) => {
-        e.stopPropagation();
-        if (!confirm("Delete this case? This cannot be undone.")) return;
-        await DeleteCase(id);
-        refresh();
+    const handleDelete = async () => {
+        const id = deleteTarget;
+        setDeleteTarget(null);
+        try {
+            await DeleteCase(id);
+            refresh();
+        } catch (err) {
+            console.error("Delete case failed:", err);
+        }
     };
 
     return (
         <div className="case-list">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <h2>Cases</h2>
-                <button className="primary" onClick={handleCreate}>+ New Case</button>
+                <button className="primary" onClick={() => setShowCreate(true)}>+ New Case</button>
             </div>
 
             {(!cases || cases.length === 0) ? (
@@ -53,11 +73,29 @@ export default function CaseListView({ onOpenCase, refresh, cases }) {
                                 ) : (
                                     <button onClick={(e) => handleClose(e, c.id)}>Close</button>
                                 )}
-                                <button onClick={(e) => handleDelete(e, c.id)}>Delete</button>
+                                <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(c.id); }}>Delete</button>
                             </div>
                         </div>
                     ))}
                 </div>
+            )}
+
+            {showCreate && (
+                <InputDialog
+                    title="New Case"
+                    placeholder="Case name"
+                    onSubmit={handleCreate}
+                    onCancel={() => setShowCreate(false)}
+                />
+            )}
+
+            {deleteTarget && (
+                <ConfirmDialog
+                    title="Delete Case"
+                    message="Delete this case? This cannot be undone."
+                    onConfirm={handleDelete}
+                    onCancel={() => setDeleteTarget(null)}
+                />
             )}
         </div>
     );

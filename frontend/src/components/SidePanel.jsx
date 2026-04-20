@@ -1,9 +1,11 @@
-import { GetTables, ListSessions, CreateSession } from "../../wailsjs/go/main/App";
+import { GetTables, ListSessions, CreateSession, ImportData } from "../../wailsjs/go/main/App";
 import { useState, useEffect } from "react";
+import { ImportDialog } from "./Dialog";
 
 export default function SidePanel({ caseId, activeSessionId, onSelectSession, onRefreshTables }) {
     const [tables, setTables] = useState([]);
     const [sessions, setSessions] = useState([]);
+    const [showImport, setShowImport] = useState(false);
 
     useEffect(() => {
         if (!caseId) return;
@@ -21,6 +23,16 @@ export default function SidePanel({ caseId, activeSessionId, onSelectSession, on
         } catch { setSessions([]); }
     };
 
+    const handleImport = async (path, table) => {
+        setShowImport(false);
+        try {
+            await ImportData(caseId, path, table);
+            await loadData();
+        } catch (err) {
+            console.error("Import error:", err);
+        }
+    };
+
     const handleNewSession = async () => {
         const sess = await CreateSession(caseId);
         await loadData();
@@ -34,7 +46,10 @@ export default function SidePanel({ caseId, activeSessionId, onSelectSession, on
     return (
         <div className="side-panel">
             <div className="side-section">
-                <h3>Tables</h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <h3 style={{ margin: 0 }}>Tables</h3>
+                    <button onClick={() => setShowImport(true)} style={{ fontSize: 11, padding: "2px 8px" }}>+ Import</button>
+                </div>
                 {tables.length === 0 ? (
                     <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>No data imported</div>
                 ) : (
@@ -68,6 +83,13 @@ export default function SidePanel({ caseId, activeSessionId, onSelectSession, on
                     ))
                 )}
             </div>
+
+            {showImport && (
+                <ImportDialog
+                    onSubmit={handleImport}
+                    onCancel={() => setShowImport(false)}
+                />
+            )}
         </div>
     );
 }

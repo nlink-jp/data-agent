@@ -58,6 +58,9 @@ func (a *App) startup(ctx context.Context) {
 	a.cases, err = casemgr.NewManager(dataDir)
 	if err != nil {
 		a.log.Error("case manager init failed", logger.F("error", err.Error()))
+	} else {
+		// Reset ghost "open" status from unclean shutdown
+		a.cases.ResetGhostStatus()
 	}
 
 	// Initialize job manager
@@ -269,12 +272,17 @@ func (a *App) ApprovePlan(caseID, sessionID string) error {
 func (a *App) ExecuteSQL(caseID, sessionID, sql string) (*dbengine.QueryResult, error) {
 	engine, err := a.cases.Engine(caseID)
 	if err != nil {
+		a.log.Error("SQL execution failed: engine not available", logger.F("case", caseID), logger.F("error", err.Error()))
 		return nil, err
 	}
+
+	a.log.Info("executing SQL", logger.F("sql", truncate(sql, 100)))
 	result, err := engine.Execute(sql)
 	if err != nil {
+		a.log.Warn("SQL error", logger.F("sql", truncate(sql, 80)), logger.F("error", err.Error()))
 		return result, err
 	}
+	a.log.Info("SQL completed", logger.F("rows", fmt.Sprintf("%d", result.RowCount)), logger.F("duration", result.Duration.String()))
 
 	// Record in exec log if we have a session
 	if sessionID != "" {
@@ -390,6 +398,13 @@ func (a *App) SaveConfig(cfg *config.Config) error {
 }
 
 // --- Helpers ---
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
+}
 
 func buildPlanningPrompt(schemaCtx string) string {
 	return `You are a data analysis planner.
