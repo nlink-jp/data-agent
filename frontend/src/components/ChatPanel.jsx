@@ -135,6 +135,8 @@ export default function ChatPanel({ caseId, sessionId, onViewReport }) {
         // Auto-reopen done sessions
         if (phase === "done") {
             try { await ReopenSession(caseId, sessionId); } catch {}
+            // Wait for loadSession triggered by phase event to settle
+            await new Promise(r => setTimeout(r, 100));
         }
 
         if (text.startsWith("/sql ")) {
