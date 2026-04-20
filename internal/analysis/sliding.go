@@ -93,6 +93,8 @@ func RunSlidingWindow(
 2. Identify new findings with record references
 3. Classify findings by severity: high, medium, low, info
 
+Write all summary and finding descriptions in the same language as the perspective description above.
+
 Output ONLY valid JSON:
 {
   "summary": "Updated running summary",
