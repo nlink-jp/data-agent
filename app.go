@@ -280,11 +280,14 @@ func (a *App) SendMessage(caseID, sessionID, content string) error {
 
 	systemPrompt := analysis.BuildPlanningSystemPrompt(engine.SchemaContext())
 
-	// Build messages for LLM (exclude non-chat roles)
+	// Build messages for LLM (exclude non-chat roles).
+	// "system" messages are UI-only markers (e.g. "Session reopened");
+	// system instructions are sent via GenerateContentConfig.SystemInstruction.
+	// Vertex AI contents accept only "user" and "model" roles.
 	var messages []llm.Message
 	for _, msg := range sess.Chat {
 		switch msg.Role {
-		case "user", "assistant", "system":
+		case "user", "assistant":
 			messages = append(messages, llm.Message{Role: msg.Role, Content: msg.Content})
 		}
 	}

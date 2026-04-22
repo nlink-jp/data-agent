@@ -103,8 +103,13 @@ func (b *VertexAIBackend) buildContents(req *ChatRequest) []*genai.Content {
 	var contents []*genai.Content
 	for _, m := range req.Messages {
 		role := m.Role
-		if role == "assistant" {
+		switch role {
+		case "assistant":
 			role = "model"
+		case "system":
+			// Skip: system instructions are sent via GenerateContentConfig.SystemInstruction.
+			// Vertex AI contents accept only "user" and "model" roles.
+			continue
 		}
 		contents = append(contents, genai.NewContentFromText(m.Content, genai.Role(role)))
 	}
