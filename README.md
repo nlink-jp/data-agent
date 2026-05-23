@@ -1,5 +1,14 @@
 # data-agent
 
+> **⚠️ Archived (2026-05-23).**
+> The features explored in data-agent — case-based DuckDB, interactive
+> chat-driven SQL, dual LLM backend, container-based execution — have
+> been folded into
+> [**shell-agent-v2**](https://github.com/nlink-jp/shell-agent-v2),
+> which is the actively maintained successor. No further releases of
+> data-agent are planned. Existing tagged releases and source remain
+> available for reference.
+
 Data analysis desktop GUI tool with interactive chat interface.
 
 Ingest JSON/JSONL/CSV/TSV/SQLite data into per-case DuckDB databases and explore them through natural language queries or direct SQL. Supports table display, graph visualization, Markdown report generation, and container-based Python analysis.

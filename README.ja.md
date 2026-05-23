@@ -1,5 +1,12 @@
 # data-agent
 
+> **⚠️ アーカイブ済み (2026-05-23)。**
+> data-agent で試行したケースベース DuckDB / 対話型 SQL チャット /
+> デュアル LLM バックエンド / コンテナ実行などの機能は
+> [**shell-agent-v2**](https://github.com/nlink-jp/shell-agent-v2)
+> に統合済みです。今後のリリースは予定していません。タグ済みリリースと
+> ソースは参照用に残します。
+
 対話型チャットインターフェースを備えたデータ分析デスクトップGUIツール。
 
 JSON/JSONL/CSV/TSV/SQLiteデータをケースごとに独立したDuckDBに取り込み、自然言語クエリまたは直接SQLで探索する。テーブル表示、グラフ可視化、Markdownレポート生成、コンテナベースのPython分析に対応。
